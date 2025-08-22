@@ -45,14 +45,9 @@ jobs:
       - name: Upload to ATR
         uses: apache/tooling-actions/upload-to-atr@<COMMIT>
         with:
-          asf-uid: ${{ secrets.ASF_UID }}
-          project: my-project
+          asf-uid: username
+          project: example
           version: ${{ github.ref_name }}
-          src: dist
-          audience: atr-test
-          atr-host: release-test.apache.org
-          ssh-port: '2222'
-          rsync-args: -av
 ```
 
 ## Further details
