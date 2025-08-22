@@ -62,3 +62,10 @@ repos:
       - id: yamllint
         name: yamllint
         files: ^.*\.ya?ml$
+
+  - repo: https://github.com/python-jsonschema/check-jsonschema
+    rev: 0.33.3
+    hooks:
+      - id: check-github-actions
+        files: ^(.*/)?action\.ya?ml$
+        args: ["--verbose"]
