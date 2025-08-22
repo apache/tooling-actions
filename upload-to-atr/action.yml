@@ -1,0 +1,70 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: "Upload to ATR using GitHub OIDC and rsync"
+description: "Create a GitHub OIDC JWT, register an SSH key, then rsync a directory to ATR."
+branding: {icon: upload-cloud, color: blue}
+
+inputs:
+  asf-uid: {description: "ASF UID", required: true}
+  project: {description: "Project", required: true}
+  version: {description: "Version", required: true}
+  src: {description: "Local directory", default: "dist"}
+  audience: {description: "OIDC audience", default: "atr-test"}
+  atr-host: {description: "ATR host", default: "release-test.apache.org"}
+  ssh-port: {description: "SSH port", default: "2222"}
+  rsync-args: {description: "Arguments for rsync", default: "-av"}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create a GitHub OIDC JWT
+      shell: bash
+      run: |
+        set -euxo pipefail
+        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${{ inputs.audience }}"
+        jwt="$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" \
+             | python3 -c 'import json, sys; print(json.load(sys.stdin)["value"])')"
+        echo "::add-mask::$jwt"
+        echo "JWT=$jwt" >> "$GITHUB_ENV"
+
+    - name: Generate an ephemeral SSH key
+      shell: bash
+      run: |
+        set -euxo pipefail
+        ssh-keygen -t ed25519 -N "" -f "$RUNNER_TEMP/ssh_key"
+        echo "SSH_PRIVATE_KEY_PATH=$RUNNER_TEMP/ssh_key" >> "$GITHUB_ENV"
+        echo "SSH_PUBLIC_KEY=$(cat "$RUNNER_TEMP/ssh_key.pub")" >> "$GITHUB_ENV"
+
+    - name: Register the ephemeral SSH key with ATR
+      shell: bash
+      run: |
+        set -euxo pipefail
+        curl -sS -X POST -H "Content-Type: application/json" \
+          -d "{\"jwt\":\"$JWT\",\"ssh_key\":\"$SSH_PUBLIC_KEY\"}" \
+          "https://${{ inputs.atr-host }}/api/jwt/github"
+
+    - name: Upload to ATR using rsync
+      shell: bash
+      run: |
+        set -euxo pipefail
+        command -v rsync > /dev/null || { sudo apt-get update -y && sudo apt-get install -y rsync; }
+        src="${{ inputs.src }}"
+        case "$src" in */) ;; *) src="$src/";; esac
+        rsync ${{ inputs.rsync-args }} \
+          -e "ssh -p ${{ inputs.ssh-port }} -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
+          "$src" "${{ inputs.asf-uid }}@${{ inputs.atr-host }}:/${{ inputs.project }}/${{ inputs.version }}/"
