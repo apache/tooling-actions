@@ -1,10 +1,10 @@
-### Upload to ATR with GitHub OIDC and rsync
+# Upload to ATR with GitHub OIDC and rsync
 
 This composite GitHub Action exchanges a GitHub OIDC token for an ATR JWT, registers a short lived SSH key, and rsyncs a local directory to ATR at `/<project>/<version>/`. Use it to publish build artifacts to ATR without long lived credentials.
 
 Status: EXPERIMENTAL
 
-### Inputs
+## Inputs
 
 - **asf-uid (required)**: Your ASF UID used for SSH login.
 - **project (required)**: Project name segment in the remote path.
@@ -15,7 +15,7 @@ Status: EXPERIMENTAL
 - **ssh-port**: SSH port on ATR. Default: `2222`.
 - **rsync-args**: Arguments passed to `rsync`. Default: `-av`.
 
-### Example workflow
+## Example workflow
 
 The `id-token` write permission is **required** when using this GitHub Action.
 
@@ -51,7 +51,7 @@ jobs:
           rsync-args: -av
 ```
 
-### Further details
+## Further details
 
 The job must grant `id-token: write` so that this action can request a GitHub OIDC token.
 
