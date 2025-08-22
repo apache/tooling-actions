@@ -4,6 +4,8 @@ This is the repository for GitHub Actions written and maintained by the Apache S
 
 ## Available actions
 
+**NOTE: We do not tag versions. You must refer to every action by its pinned commit hash.**
+
 ### `apache/tooling-actions/upload-to-atr`
 
 [Upload your artifacts to ATR using OIDC and an emphemeral SSH key.](https://github.com/apache/tooling-actions/tree/main/upload-to-atr)
