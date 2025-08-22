@@ -2,6 +2,8 @@
 
 This composite GitHub Action exchanges a GitHub OIDC token for an ATR JWT, registers a short lived SSH key, and rsyncs a local directory to ATR at `/<project>/<version>/`. Use it to publish build artifacts to ATR without long lived credentials.
 
+Status: EXPERIMENTAL
+
 ### Inputs
 
 - **asf-uid (required)**: Your ASF UID used for SSH login.
