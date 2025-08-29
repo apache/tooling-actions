@@ -1,3 +1,4 @@
+---
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -27,44 +28,59 @@ inputs:
   audience: {description: "OIDC audience", default: "atr-test"}
   atr-host: {description: "ATR host", default: "release-test.apache.org"}
   ssh-port: {description: "SSH port", default: "2222"}
-  rsync-args: {description: "Arguments for rsync", default: "-av"}
 
 runs:
   using: "composite"
   steps:
     - name: Create a GitHub OIDC JWT
+      id: create-github-jwt
       shell: bash
       run: |
         set -euxo pipefail
-        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${{ inputs.audience }}"
+        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${INPUTS_AUDIENCE}"
         jwt="$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" \
              | python3 -c 'import json, sys; print(json.load(sys.stdin)["value"])')"
         echo "::add-mask::$jwt"
-        echo "JWT=$jwt" >> "$GITHUB_ENV"
+        echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
+      env:
+        INPUTS_AUDIENCE: ${{ inputs.audience }}
 
     - name: Generate an ephemeral SSH key
+      id: generate-ssh-key
       shell: bash
       run: |
         set -euxo pipefail
         ssh-keygen -t ed25519 -N "" -f "$RUNNER_TEMP/ssh_key"
-        echo "SSH_PRIVATE_KEY_PATH=$RUNNER_TEMP/ssh_key" >> "$GITHUB_ENV"
-        echo "SSH_PUBLIC_KEY=$(cat "$RUNNER_TEMP/ssh_key.pub")" >> "$GITHUB_ENV"
+        echo "ssh_private_key_path=$RUNNER_TEMP/ssh_key" >> "$GITHUB_OUTPUT"
+        echo "ssh_public_key=$(cat "$RUNNER_TEMP/ssh_key.pub")" >> "$GITHUB_OUTPUT"
 
     - name: Register the ephemeral SSH key with ATR
       shell: bash
       run: |
         set -euxo pipefail
-        curl -sS -X POST -H "Content-Type: application/json" \
-          -d "{\"jwt\":\"$JWT\",\"ssh_key\":\"$SSH_PUBLIC_KEY\"}" \
-          "https://${{ inputs.atr-host }}/api/jwt/github"
+        jq -n --arg jwt "$JWT" --arg key "$SSH_PUBLIC_KEY" '{jwt:$jwt, ssh_key:$key}' |
+          curl -sS -X POST -H 'Content-Type: application/json' \
+            -d @- "https://${INPUTS_ATR_HOST}/api/jwt/github"
+      env:
+        INPUTS_ATR_HOST: ${{ inputs.atr-host }}
+        JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+        SSH_PUBLIC_KEY: ${{ steps.generate-ssh-key.outputs.ssh_public_key }}
 
     - name: Upload to ATR using rsync
       shell: bash
       run: |
         set -euxo pipefail
         command -v rsync > /dev/null || { sudo apt-get update -y && sudo apt-get install -y rsync; }
-        src="${{ inputs.src }}"
+        src="${INPUTS_SRC}"
         case "$src" in */) ;; *) src="$src/";; esac
-        rsync ${{ inputs.rsync-args }} \
-          -e "ssh -p ${{ inputs.ssh-port }} -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
-          "$src" "${{ inputs.asf-uid }}@${{ inputs.atr-host }}:/${{ inputs.project }}/${{ inputs.version }}/"
+        rsync -av \
+          -e "ssh -p ${INPUTS_SSH_PORT} -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
+          "$src" "${INPUTS_ASF_UID}@${INPUTS_ATR_HOST}:/${INPUTS_PROJECT}/${INPUTS_VERSION}/"
+      env:
+        INPUTS_SRC: ${{ inputs.src }}
+        INPUTS_SSH_PORT: ${{ inputs.ssh-port }}
+        INPUTS_ASF_UID: ${{ inputs.asf-uid }}
+        INPUTS_ATR_HOST: ${{ inputs.atr-host }}
+        INPUTS_PROJECT: ${{ inputs.project }}
+        INPUTS_VERSION: ${{ inputs.version }}
+        SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
