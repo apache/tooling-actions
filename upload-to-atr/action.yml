@@ -60,7 +60,7 @@ runs:
         set -euxo pipefail
         jq -n --arg jwt "$JWT" --arg key "$SSH_PUBLIC_KEY" '{jwt:$jwt, ssh_key:$key}' |
           curl -sS -X POST -H 'Content-Type: application/json' \
-            -d @- "https://${INPUTS_ATR_HOST}/api/jwt/github"
+            -d @- "https://${INPUTS_ATR_HOST}/api/github/ssh/register"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         JWT: ${{ steps.create-github-jwt.outputs.jwt }}
