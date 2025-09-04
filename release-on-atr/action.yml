@@ -1,0 +1,107 @@
+---
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: "Release on ATR using a GitHub OIDC JWT"
+description: "Resolve a vote or announce a release on ATR using a GitHub OIDC JWT."
+branding: {icon: upload-cloud, color: blue}
+
+inputs:
+  version: {description: "Release version", required: true}
+  atr-host: {description: "ATR host", default: "release-test.apache.org"}
+  audience: {description: "OIDC audience", default: "atr-test"}
+
+  resolve: {description: "Resolve vote (true or false)", default: "false"}
+  resolve-resolution: {description: "Vote resolution (passed or failed)"}
+
+  announce: {description: "Announce release (true or false)", default: "false"}
+  announce-revision: {description: "Revision number to announce"}
+  announce-email-to: {description: "Announcement recipient mailing list address"}
+  announce-subject: {description: "Announcement email subject"}
+  announce-body: {description: "Announcement email body"}
+  announce-path-suffix: {description: "Download path suffix"}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create a GitHub OIDC JWT
+      id: create-github-jwt
+      shell: bash
+      run: |
+        set -euxo pipefail
+        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${INPUTS_AUDIENCE}"
+        jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
+        echo "::add-mask::$jwt"
+        echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
+      env:
+        INPUTS_AUDIENCE: ${{ inputs.audience }}
+
+    - name: Resolve vote (optional)
+      if: ${{ inputs.resolve == 'true' }}
+      shell: bash
+      run: |
+        set -euxo pipefail
+        case "${INPUTS_ATR_HOST}" in
+          *.apache.org) ;;
+          *) echo "atr-host must match *.apache.org"; exit 1;;
+        esac
+        : "${INPUTS_RESOLVE_RESOLUTION:?resolve-resolution is required when resolve == true}"
+        jq -n --arg jwt "$JWT" \
+              --arg version "$INPUTS_VERSION" \
+              --arg resolution "$INPUTS_RESOLVE_RESOLUTION" \
+              '{jwt:$jwt, version:$version, resolution:$resolution}' |
+          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+            "https://${INPUTS_ATR_HOST}/api/github/vote/resolve"
+      env:
+        INPUTS_ATR_HOST: ${{ inputs.atr-host }}
+        INPUTS_VERSION: ${{ inputs.version }}
+        INPUTS_RESOLVE_RESOLUTION: ${{ inputs.resolve-resolution }}
+        JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+
+    - name: Announce release (optional)
+      if: ${{ inputs.announce == 'true' }}
+      shell: bash
+      run: |
+        set -euxo pipefail
+        case "${INPUTS_ATR_HOST}" in
+          *.apache.org) ;;
+          *) echo "atr-host must match *.apache.org"; exit 1;;
+        esac
+        : "${INPUTS_ANNOUNCE_REVISION:?announce-revision is required when announce == true}"
+        : "${INPUTS_ANNOUNCE_EMAIL_TO:?announce-email-to is required when announce == true}"
+        : "${INPUTS_ANNOUNCE_SUBJECT:?announce-subject is required when announce == true}"
+        : "${INPUTS_ANNOUNCE_BODY:?announce-body is required when announce == true}"
+        : "${INPUTS_ANNOUNCE_PATH_SUFFIX:?announce-path-suffix is required when announce == true}"
+        jq -n --arg jwt "$JWT" \
+              --arg version "$INPUTS_VERSION" \
+              --arg revision "$INPUTS_ANNOUNCE_REVISION" \
+              --arg email_to "$INPUTS_ANNOUNCE_EMAIL_TO" \
+              --arg subject "$INPUTS_ANNOUNCE_SUBJECT" \
+              --arg body "$INPUTS_ANNOUNCE_BODY" \
+              --arg path_suffix "$INPUTS_ANNOUNCE_PATH_SUFFIX" \
+              '{jwt:$jwt, version:$version, revision:$revision, email_to:$email_to, subject:$subject, body:$body, path_suffix:$path_suffix}' |
+          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+            "https://${INPUTS_ATR_HOST}/api/github/release/announce"
+      env:
+        INPUTS_ATR_HOST: ${{ inputs.atr-host }}
+        INPUTS_VERSION: ${{ inputs.version }}
+        INPUTS_ANNOUNCE_REVISION: ${{ inputs.announce-revision }}
+        INPUTS_ANNOUNCE_EMAIL_TO: ${{ inputs.announce-email-to }}
+        INPUTS_ANNOUNCE_SUBJECT: ${{ inputs.announce-subject }}
+        INPUTS_ANNOUNCE_BODY: ${{ inputs.announce-body }}
+        INPUTS_ANNOUNCE_PATH_SUFFIX: ${{ inputs.announce-path-suffix }}
+        JWT: ${{ steps.create-github-jwt.outputs.jwt }}
