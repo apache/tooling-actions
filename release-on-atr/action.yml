@@ -86,6 +86,7 @@ runs:
         : "${INPUTS_ANNOUNCE_SUBJECT:?announce-subject is required when announce == true}"
         : "${INPUTS_ANNOUNCE_BODY:?announce-body is required when announce == true}"
         : "${INPUTS_ANNOUNCE_PATH_SUFFIX:?announce-path-suffix is required when announce == true}"
+        echo "::add-mask::$INPUTS_ANNOUNCE_EMAIL_TO"
         jq -n --arg jwt "$JWT" \
               --arg version "$INPUTS_VERSION" \
               --arg revision "$INPUTS_ANNOUNCE_REVISION" \
