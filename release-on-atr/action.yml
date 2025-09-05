@@ -42,7 +42,7 @@ runs:
       id: create-github-jwt
       shell: bash
       run: |
-        set -euxo pipefail
+        set -euo pipefail
         url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${INPUTS_AUDIENCE}"
         jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
         echo "::add-mask::$jwt"
@@ -72,6 +72,13 @@ runs:
         INPUTS_RESOLVE_RESOLUTION: ${{ inputs.resolve-resolution }}
         JWT: ${{ steps.create-github-jwt.outputs.jwt }}
 
+    - name: Mask announce email
+      if: ${{ inputs.announce == 'true' }}
+      shell: bash
+      run: echo "::add-mask::$INPUTS_ANNOUNCE_EMAIL_TO"
+      env:
+        INPUTS_ANNOUNCE_EMAIL_TO: ${{ inputs.announce-email-to }}
+
     - name: Announce release (optional)
       if: ${{ inputs.announce == 'true' }}
       shell: bash
@@ -86,7 +93,6 @@ runs:
         : "${INPUTS_ANNOUNCE_SUBJECT:?announce-subject is required when announce == true}"
         : "${INPUTS_ANNOUNCE_BODY:?announce-body is required when announce == true}"
         : "${INPUTS_ANNOUNCE_PATH_SUFFIX:?announce-path-suffix is required when announce == true}"
-        echo "::add-mask::$INPUTS_ANNOUNCE_EMAIL_TO"
         jq -n --arg jwt "$JWT" \
               --arg version "$INPUTS_VERSION" \
               --arg revision "$INPUTS_ANNOUNCE_REVISION" \
