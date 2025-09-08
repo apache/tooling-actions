@@ -4,7 +4,7 @@
 apache/tooling-actions/release-on-atr
 ```
 
-This composite GitHub Action exchanges a GitHub OIDC token for an ATR JWT and lets you resolve a vote or announce a release on ATR. It does not allow you to upload or modify files in the release.
+This composite GitHub Action lets you resolve a vote or announce a release on ATR.
 
 Status: EXPERIMENTAL
 

@@ -4,7 +4,7 @@
 apache/tooling-actions/upload-to-atr
 ```
 
-This composite GitHub Action exchanges a GitHub OIDC token for an ATR JWT, registers a short lived SSH key, and rsyncs a local directory to ATR at `/<project>/<version>/`. Use it to publish build artifacts to ATR without long lived credentials.
+This composite GitHub Action registers a short lived SSH key with the ATR and then rsyncs a local directory to ATR at `/<project>/<version>/`. Use it to publish build artifacts to ATR without long lived credentials.
 
 Status: EXPERIMENTAL
 
