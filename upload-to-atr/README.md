@@ -14,7 +14,6 @@ Status: EXPERIMENTAL
 - **project (required)**: Project name segment in the remote path.
 - **version (required)**: Version segment in the remote path.
 - **src**: Local directory to upload. Default: `dist`. A trailing slash will be added automatically if omitted.
-- **audience**: OIDC audience for the JWT request. Default: `atr-test`.
 - **atr-host**: ATR host to upload to. Default: `release-test.apache.org`.
 - **ssh-port**: SSH port on ATR. Default: `2222`.
 - **rsync-args**: Arguments passed to `rsync`. Default: `-av`.

@@ -23,7 +23,6 @@ branding: {icon: upload-cloud, color: blue}
 inputs:
   version: {description: "Release version", required: true}
   atr-host: {description: "ATR host", default: "release-test.apache.org"}
-  audience: {description: "OIDC audience", default: "atr-test"}
 
   resolve: {description: "Resolve vote (true or false)", default: "false"}
   resolve-resolution: {description: "Vote resolution (passed or failed)"}
@@ -43,12 +42,10 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${INPUTS_AUDIENCE}"
+        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=atr-test-v1"
         jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
         echo "::add-mask::$jwt"
         echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
-      env:
-        INPUTS_AUDIENCE: ${{ inputs.audience }}
 
     - name: Resolve vote (optional)
       if: ${{ inputs.resolve == 'true' }}
@@ -60,12 +57,13 @@ runs:
           *) echo "atr-host must match *.apache.org"; exit 1;;
         esac
         : "${INPUTS_RESOLVE_RESOLUTION:?resolve-resolution is required when resolve == true}"
-        jq -n --arg jwt "$JWT" \
+        jq -n --arg publisher github \
+              --arg jwt "$JWT" \
               --arg version "$INPUTS_VERSION" \
               --arg resolution "$INPUTS_RESOLVE_RESOLUTION" \
-              '{jwt:$jwt, version:$version, resolution:$resolution}' |
+              '{publisher:$publisher, jwt:$jwt, version:$version, resolution:$resolution}' |
           curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
-            "https://${INPUTS_ATR_HOST}/api/github/vote/resolve"
+            "https://${INPUTS_ATR_HOST}/api/publisher/vote/resolve"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         INPUTS_VERSION: ${{ inputs.version }}
@@ -93,16 +91,17 @@ runs:
         : "${INPUTS_ANNOUNCE_SUBJECT:?announce-subject is required when announce == true}"
         : "${INPUTS_ANNOUNCE_BODY:?announce-body is required when announce == true}"
         : "${INPUTS_ANNOUNCE_PATH_SUFFIX:?announce-path-suffix is required when announce == true}"
-        jq -n --arg jwt "$JWT" \
+        jq -n --arg publisher github \
+              --arg jwt "$JWT" \
               --arg version "$INPUTS_VERSION" \
               --arg revision "$INPUTS_ANNOUNCE_REVISION" \
               --arg email_to "$INPUTS_ANNOUNCE_EMAIL_TO" \
               --arg subject "$INPUTS_ANNOUNCE_SUBJECT" \
               --arg body "$INPUTS_ANNOUNCE_BODY" \
               --arg path_suffix "$INPUTS_ANNOUNCE_PATH_SUFFIX" \
-              '{jwt:$jwt, version:$version, revision:$revision, email_to:$email_to, subject:$subject, body:$body, path_suffix:$path_suffix}' |
+              '{publisher:$publisher, jwt:$jwt, version:$version, revision:$revision, email_to:$email_to, subject:$subject, body:$body, path_suffix:$path_suffix}' |
           curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
-            "https://${INPUTS_ATR_HOST}/api/github/release/announce"
+            "https://${INPUTS_ATR_HOST}/api/publisher/release/announce"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         INPUTS_VERSION: ${{ inputs.version }}

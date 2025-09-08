@@ -25,7 +25,6 @@ inputs:
   project: {description: "Project", required: true}
   version: {description: "Version", required: true}
   src: {description: "Local directory", default: "dist"}
-  audience: {description: "OIDC audience", default: "atr-test"}
   atr-host: {description: "ATR host", default: "release-test.apache.org"}
   ssh-port: {description: "SSH port", default: "2222"}
 
@@ -37,13 +36,11 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${INPUTS_AUDIENCE}"
+        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=atr-test-v1"
         jwt="$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" \
              | python3 -c 'import json, sys; print(json.load(sys.stdin)["value"])')"
         echo "::add-mask::$jwt"
         echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
-      env:
-        INPUTS_AUDIENCE: ${{ inputs.audience }}
 
     - name: Generate an ephemeral SSH key
       id: generate-ssh-key
@@ -58,9 +55,12 @@ runs:
       shell: bash
       run: |
         set -euxo pipefail
-        jq -n --arg jwt "$JWT" --arg key "$SSH_PUBLIC_KEY" '{jwt:$jwt, ssh_key:$key}' |
+        jq -n --arg publisher github \
+              --arg jwt "$JWT" \
+              --arg key "$SSH_PUBLIC_KEY" \
+              '{publisher:$publisher, jwt:$jwt, ssh_key:$key}' |
           curl -sS -X POST -H 'Content-Type: application/json' \
-            -d @- "https://${INPUTS_ATR_HOST}/api/github/ssh/register"
+            -d @- "https://${INPUTS_ATR_HOST}/api/publisher/ssh/register"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         JWT: ${{ steps.create-github-jwt.outputs.jwt }}
