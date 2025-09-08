@@ -37,8 +37,7 @@ runs:
       run: |
         set -euo pipefail
         url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=atr-test-v1"
-        jwt="$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" \
-             | python3 -c 'import json, sys; print(json.load(sys.stdin)["value"])')"
+        jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
         echo "::add-mask::$jwt"
         echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
 
@@ -55,12 +54,16 @@ runs:
       shell: bash
       run: |
         set -euxo pipefail
+        case "${INPUTS_ATR_HOST}" in
+          *.apache.org) ;;
+          *) echo "atr-host must match *.apache.org"; exit 1;;
+        esac
         jq -n --arg publisher github \
               --arg jwt "$JWT" \
               --arg key "$SSH_PUBLIC_KEY" \
               '{publisher:$publisher, jwt:$jwt, ssh_key:$key}' |
-          curl -sS -X POST -H 'Content-Type: application/json' \
-            -d @- "https://${INPUTS_ATR_HOST}/api/publisher/ssh/register"
+          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+            "https://${INPUTS_ATR_HOST}/api/publisher/ssh/register"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         JWT: ${{ steps.create-github-jwt.outputs.jwt }}
