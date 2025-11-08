@@ -16,7 +16,6 @@ Status: EXPERIMENTAL
 - **src**: Local directory to upload. Default: `dist`. A trailing slash will be added automatically if omitted.
 - **atr-host**: ATR host to upload to. Default: `release-test.apache.org`.
 - **ssh-port**: SSH port on ATR. Default: `2222`.
-- **rsync-args**: Arguments passed to `rsync`. Default: `-av`.
 
 ## Example workflow
 
@@ -56,5 +55,3 @@ The job must grant `id-token: write` so that this action can request a GitHub OI
 This action generates an ephemeral Ed25519 SSH key, registers its public key with ATR using the GitHub JWT, which is checked used JWKS, and discards the key after the job. SSH uses `StrictHostKeyChecking=accept-new` so that the host key is learned on first connection.
 
 The remote path is `/<project>/<version>/`. The contents of `src` are synced to ATR. ATR will create a new revision of the project with the synced files. If `rsync` is missing on the runner, this action installs it.
-
-You should not adjust `rsync-args`, as ATR is very strict about which rsync arguments it accepts.
