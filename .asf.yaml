@@ -6,10 +6,10 @@ github:
     issues: true
     projects: true
   enabled_merge_buttons:
-    squash:  true
+    squash: true
     squash_commit_message: DEFAULT
-    merge:   false
-    rebase:  true
+    merge: false
+    rebase: true
   custom_subjects:
     new_pr: "[PR] {title} ({repository})"
     close_pr: "Re: [PR] {title} ({repository})"
@@ -21,6 +21,6 @@ github:
     catchall: "[GH] {title} ({repository})"
 
 notifications:
-  commits:      commits@tooling.apache.org
-  issues:       dev@tooling.apache.org
+  commits: commits@tooling.apache.org
+  issues: dev@tooling.apache.org
   pullrequests: dev@tooling.apache.org
