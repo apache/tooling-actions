@@ -21,7 +21,6 @@ description: "Create a GitHub OIDC JWT, register an SSH key, then rsync a direct
 branding: {icon: upload-cloud, color: blue}
 
 inputs:
-  asf-uid: {description: "ASF UID", required: true}
   project: {description: "Project", required: true}
   version: {description: "Version", required: true}
   src: {description: "Local directory", default: "dist"}
@@ -78,11 +77,10 @@ runs:
         case "$src" in */) ;; *) src="$src/";; esac
         rsync -av \
           -e "ssh -p ${INPUTS_SSH_PORT} -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
-          "$src" "${INPUTS_ASF_UID}@${INPUTS_ATR_HOST}:/${INPUTS_PROJECT}/${INPUTS_VERSION}/"
+          "$src" "github@${INPUTS_ATR_HOST}:/${INPUTS_PROJECT}/${INPUTS_VERSION}/"
       env:
         INPUTS_SRC: ${{ inputs.src }}
         INPUTS_SSH_PORT: ${{ inputs.ssh-port }}
-        INPUTS_ASF_UID: ${{ inputs.asf-uid }}
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         INPUTS_PROJECT: ${{ inputs.project }}
         INPUTS_VERSION: ${{ inputs.version }}
