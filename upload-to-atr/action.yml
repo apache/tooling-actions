@@ -72,11 +72,24 @@ runs:
       shell: bash
       run: |
         set -euxo pipefail
+        if ! [[ "${INPUTS_SSH_PORT}" =~ ^[0-9]+$ ]]
+        then
+          echo "::error::ssh-port must be an integer"
+          exit 1
+        fi
+        : "${INPUTS_PROJECT:?project is required}"
+        : "${INPUTS_VERSION:?version is required}"
+        if [[ -z "${INPUTS_SRC}" ]]
+        then
+          echo "::error::src cannot be empty"
+          exit 1
+        fi
         command -v rsync > /dev/null || { sudo apt-get update -y && sudo apt-get install -y rsync; }
         src="${INPUTS_SRC}"
         case "$src" in */) ;; *) src="$src/";; esac
         rsync -av \
           -e "ssh -p ${INPUTS_SSH_PORT} -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
+          -- \
           "$src" "github@${INPUTS_ATR_HOST}:/${INPUTS_PROJECT}/${INPUTS_VERSION}/"
       env:
         INPUTS_SRC: ${{ inputs.src }}
