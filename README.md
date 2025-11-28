@@ -8,7 +8,7 @@ This is the repository for GitHub Actions written and maintained by the Apache S
 
 ### `apache/tooling-actions/upload-to-atr`
 
-[Upload your artifacts to ATR using OIDC and an emphemeral SSH key.](https://github.com/apache/tooling-actions/tree/main/upload-to-atr)
+[Upload your artifacts to ATR using OIDC and an ephemeral SSH key.](https://github.com/apache/tooling-actions/tree/main/upload-to-atr)
 
 Status: EXPERIMENTAL
 
