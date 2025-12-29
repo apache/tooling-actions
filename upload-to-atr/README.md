@@ -10,7 +10,6 @@ Status: EXPERIMENTAL
 
 ## Inputs
 
-- **asf-uid (required)**: Your ASF UID used for SSH login.
 - **project (required)**: Project name segment in the remote path.
 - **version (required)**: Version segment in the remote path.
 - **src**: Local directory to upload. Default: `dist`. A trailing slash will be added automatically if omitted.
@@ -43,7 +42,6 @@ jobs:
       - name: Upload to ATR
         uses: apache/tooling-actions/upload-to-atr@<COMMIT>
         with:
-          asf-uid: username
           project: example
           version: ${{ github.ref_name }}
 ```
