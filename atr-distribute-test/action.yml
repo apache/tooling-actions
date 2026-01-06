@@ -1,0 +1,92 @@
+---
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: "Perform a distribution from an ATR release"
+description: "Obtain files from ATR and distribute them (test, goes nowhere)."
+branding: {icon: upload-cloud, color: blue}
+
+inputs:
+  version: {description: "Release version", required: true}
+  platform: {description: "Distribution platform (documented in the ATR API)", required: true}
+  distribution-owner-namespace: {description: "Owner namespace", default: ""}
+  distribution-package: {description: "Distribution package", required: true}
+  distribution-version: {description: "Distribution version", required: true}
+  staging: {description: "Use staging (true or false)", default: "false"}
+  details: {description: "Include detailed check (true or false)", default: "false"}
+  atr-host: {description: "ATR host", default: "release-test.apache.org"}
+  ssh-port: {description: "SSH port", default: "2222"}
+
+
+runs:
+  using: "composite"
+  steps:
+    - name: Generate an ephemeral SSH key
+      id: generate-ssh-key
+      shell: bash
+      run: |
+        set -euxo pipefail
+        ssh-keygen -t ed25519 -N "" -f "$RUNNER_TEMP/ssh_key"
+        echo "ssh_private_key_path=$RUNNER_TEMP/ssh_key" >> "$GITHUB_OUTPUT"
+        echo "ssh_public_key=$(cat "$RUNNER_TEMP/ssh_key.pub")" >> "$GITHUB_OUTPUT"
+
+    - name: Register the ephemeral SSH key with ATR
+      shell: bash
+      run: |
+        set -euxo pipefail
+        case "${INPUTS_ATR_HOST}" in
+          *.apache.org) ;;
+          *) echo "atr-host must match *.apache.org"; exit 1;;
+        esac
+        jq -n --arg publisher github \
+              --arg jwt "$JWT" \
+              --arg key "$SSH_PUBLIC_KEY" \
+              '{publisher:$publisher, jwt:$jwt, ssh_key:$key}' |
+          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+            "https://${INPUTS_ATR_HOST}/api/publisher/ssh/register"
+      env:
+        INPUTS_ATR_HOST: ${{ inputs.atr-host }}
+        JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+        SSH_PUBLIC_KEY: ${{ steps.generate-ssh-key.outputs.ssh_public_key }}
+
+    - name: Download from ATR using rsync
+      shell: bash
+      run: |
+        set -euxo pipefail
+        if ! [[ "${INPUTS_SSH_PORT}" =~ ^[0-9]+$ ]]
+        then
+          echo "::error::ssh-port must be an integer"
+          exit 1
+        fi
+        : "${INPUTS_DISTRIBUTION_PACKAGE:?package is required}"
+        : "${INPUTS_VERSION:?version is required}"
+        command -v rsync > /dev/null || { sudo apt-get update -y && sudo apt-get install -y rsync; }
+        mkdir stg
+        rsync -av \
+          -e "ssh -p ${INPUTS_SSH_PORT} -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
+          -- \
+          "github@${INPUTS_ATR_HOST}:/${INPUTS_PROJECT}/${INPUTS_VERSION}/" ./stg/
+      env:
+        INPUTS_SSH_PORT: ${{ inputs.ssh-port }}
+        INPUTS_ATR_HOST: ${{ inputs.atr-host }}
+        INPUTS_VERSION: ${{ inputs.version }}
+        INPUTS_PLATFORM: ${{ inputs.platform }}
+        INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
+        INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
+        INPUTS_STAGING: ${{ inputs.staging }}
+        INPUTS_DETAILS: ${{ inputs.details }}
+        SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
