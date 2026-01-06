@@ -35,6 +35,16 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Create a GitHub OIDC JWT
+      id: create-github-jwt
+      shell: bash
+      run: |
+        set -euo pipefail
+        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=atr-test-v1"
+        jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
+        echo "::add-mask::$jwt"
+        echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
+
     - name: Generate an ephemeral SSH key
       id: generate-ssh-key
       shell: bash
