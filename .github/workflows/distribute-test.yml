@@ -45,7 +45,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Distribute from ATR
-        uses: apache/tooling-actions/atr-distribute-test@55988c3babfcd4bddf11211f7501becdd5483321
+        uses: apache/tooling-actions/atr-distribute-test@da8b238137453a21eb3e93192b8aff73e9ce68e4
         with:
           platform: ${{ inputs.platform }}
           distribution-package: ${{ inputs.distribution-package }}
