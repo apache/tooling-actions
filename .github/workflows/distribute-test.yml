@@ -16,13 +16,13 @@
 # under the License.
 
 name: Distribute from ATR
-run-name: "${{ inputs.id }}"
+run-name: "${{ inputs.atr-id }}"
 
 on:
   workflow_dispatch:
     inputs:
-      id:
-        description: 'Test run ID'
+      atr-id:
+        description: 'Run ID (from ATR)'
         required: true
       platform:
         description: 'Distribution platform'
