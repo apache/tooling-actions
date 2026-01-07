@@ -22,6 +22,7 @@ branding: {icon: upload-cloud, color: blue}
 
 inputs:
   version: {description: "Release version", required: true}
+  project: {description: "Project name", required: true}
   platform: {description: "Distribution platform (documented in the ATR API)", required: true}
   distribution-owner-namespace: {description: "Owner namespace", default: ""}
   distribution-package: {description: "Distribution package", required: true}
@@ -93,6 +94,7 @@ runs:
       env:
         INPUTS_SSH_PORT: ${{ inputs.ssh-port }}
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
+        INPUTS_PROJECT: ${{ inputs.project }}
         INPUTS_VERSION: ${{ inputs.version }}
         INPUTS_PLATFORM: ${{ inputs.platform }}
         INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
