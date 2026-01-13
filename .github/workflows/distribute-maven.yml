@@ -24,11 +24,17 @@ on:
       atr-id:
         description: 'Run ID (from ATR)'
         required: true
+      asf-uid:
+        description: 'Originating user ID'
+        required: true
       project:
         description: 'Project in ATR to pull files from'
         required: true
       version:
         description: 'Version in ATR to pull files from'
+        required: true
+      phase:
+        description: 'Expected release phase in ATR'
         required: true
       distribution-owner-namespace:
         description: "Owner namespace"
@@ -83,12 +89,20 @@ jobs:
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
                 --arg key "$SSH_PUBLIC_KEY" \
-                '{publisher:$publisher, jwt:$jwt, ssh_key:$key}' |
+                --arg uid "$INPUTS_ASF_UID" \
+                --arg phase "$INPUTS_PHASE" \
+                --arg project_name "$INPUTS_PROJECT" \
+                --arg version "$INPUTS_VERSION" \
+                '{publisher:$publisher, jwt:$jwt, ssh_key:$key, asf_uid:$uid, project_name:$project_name, phase:$phase, version:$version}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/ssh/register"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
           SSH_PUBLIC_KEY: ${{ steps.generate-ssh-key.outputs.ssh_public_key }}
+          INPUTS_PROJECT: ${{ inputs.project }}
+          INPUTS_VERSION: ${{ inputs.version }}
+          INPUTS_PHASE: ${{ inputs.phase }}
+          INPUTS_ASF_UID: ${{ inputs.asf-uid }}
 
       - name: Download from ATR using rsync
         shell: bash
