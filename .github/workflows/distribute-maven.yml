@@ -150,8 +150,8 @@ jobs:
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
-          RUN_ID: ${{ job.status }}
-          STATUS: ${{ job.check_run_id }}
+          RUN_ID: ${{ github.run_id }}
+          STATUS: ${{ job.status }}
           INPUTS_PROJECT: ${{ inputs.project }}
 
       - name: Record distribution on ATR
