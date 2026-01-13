@@ -53,124 +53,121 @@ jobs:
     env:
       ATR_HOST: release-test.apache.org
     steps:
-    - name: Create a GitHub OIDC JWT
-      id: create-github-jwt
-      shell: bash
-      run: |
-        set -euo pipefail
-        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=atr-test-v1"
-        jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
-        echo "::add-mask::$jwt"
-        echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
+      - name: Create a GitHub OIDC JWT
+        id: create-github-jwt
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=atr-test-v1"
+          jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
+          echo "::add-mask::$jwt"
+          echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
 
-    - name: Generate an ephemeral SSH key
-      id: generate-ssh-key
-      shell: bash
-      run: |
-        set -euxo pipefail
-        ssh-keygen -t ed25519 -N "" -f "$RUNNER_TEMP/ssh_key"
-        echo "ssh_private_key_path=$RUNNER_TEMP/ssh_key" >> "$GITHUB_OUTPUT"
-        echo "ssh_public_key=$(cat "$RUNNER_TEMP/ssh_key.pub")" >> "$GITHUB_OUTPUT"
+      - name: Generate an ephemeral SSH key
+        id: generate-ssh-key
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ssh-keygen -t ed25519 -N "" -f "$RUNNER_TEMP/ssh_key"
+          echo "ssh_private_key_path=$RUNNER_TEMP/ssh_key" >> "$GITHUB_OUTPUT"
+          echo "ssh_public_key=$(cat "$RUNNER_TEMP/ssh_key.pub")" >> "$GITHUB_OUTPUT"
 
-    - name: Register the ephemeral SSH key with ATR
-      shell: bash
-      run: |
-        set -euxo pipefail
-        case "${ATR_HOST}" in
-          *.apache.org) ;;
-          *) echo "atr-host must match *.apache.org"; exit 1;;
-        esac
-        jq -n --arg publisher github \
-              --arg jwt "$JWT" \
-              --arg key "$SSH_PUBLIC_KEY" \
-              '{publisher:$publisher, jwt:$jwt, ssh_key:$key}' |
-          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
-            "https://${ATR_HOST}/api/publisher/ssh/register"
-      env:
-        JWT: ${{ steps.create-github-jwt.outputs.jwt }}
-        SSH_PUBLIC_KEY: ${{ steps.generate-ssh-key.outputs.ssh_public_key }}
+      - name: Register the ephemeral SSH key with ATR
+        shell: bash
+        run: |
+          set -euxo pipefail
+          case "${ATR_HOST}" in
+            *.apache.org) ;;
+            *) echo "atr-host must match *.apache.org"; exit 1;;
+          esac
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg key "$SSH_PUBLIC_KEY" \
+                '{publisher:$publisher, jwt:$jwt, ssh_key:$key}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+              "https://${ATR_HOST}/api/distribute/ssh/register"
+        env:
+          JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+          SSH_PUBLIC_KEY: ${{ steps.generate-ssh-key.outputs.ssh_public_key }}
 
-    - name: Download from ATR using rsync
-      shell: bash
-      run: |
-        set -euxo pipefail
-        if ! [[ "${INPUTS_SSH_PORT}" =~ ^[0-9]+$ ]]
-        then
-          echo "::error::ssh-port must be an integer"
-          exit 1
-        fi
-        : "${INPUTS_DISTRIBUTION_PACKAGE:?package is required}"
-        : "${INPUTS_VERSION:?version is required}"
-        command -v rsync > /dev/null || { sudo apt-get update -y && sudo apt-get install -y rsync; }
-        mkdir stg
-        rsync -av \
-          -e "ssh -p 2222 -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
-          -- \
-          "github@${ATR_HOST}:/${INPUTS_PROJECT}/${INPUTS_VERSION}/" ./stg/
-      env:
-        INPUTS_PROJECT: ${{ inputs.project }}
-        INPUTS_VERSION: ${{ inputs.version }}
-        INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
-        INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
-        INPUTS_STAGING: ${{ inputs.staging }}
-        # INPUTS_DETAILS: ${{ inputs.details }}
-        SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
+      - name: Download from ATR using rsync
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if ! [[ "${INPUTS_SSH_PORT}" =~ ^[0-9]+$ ]]
+          then
+            echo "::error::ssh-port must be an integer"
+            exit 1
+          fi
+          : "${INPUTS_DISTRIBUTION_PACKAGE:?package is required}"
+          : "${INPUTS_VERSION:?version is required}"
+          command -v rsync > /dev/null || { sudo apt-get update -y && sudo apt-get install -y rsync; }
+          mkdir stg
+          rsync -av \
+            -e "ssh -p 2222 -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
+            -- \
+            "github@${ATR_HOST}:/${INPUTS_PROJECT}/${INPUTS_VERSION}/" ./stg/
+        env:
+          INPUTS_PROJECT: ${{ inputs.project }}
+          INPUTS_VERSION: ${{ inputs.version }}
+          INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
+          INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
+          INPUTS_STAGING: ${{ inputs.staging }}
+          # INPUTS_DETAILS: ${{ inputs.details }}
+          SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
 
-    - name: Report status back to ATR
-      shell: bash
-      if: always()
-      run: |
-        set -euxo pipefail
-        case "${ATR_HOST}" in
-          *.apache.org) ;;
-          *) echo "atr-host must match *.apache.org"; exit 1;;
-        esac
-        jq -n --arg publisher github \
-              --arg jwt "$JWT" \
-              --arg workflow github \
-              --arg run_id "$RUN_ID" \
-              --arg project_name "$INPUTS_PROJECT" \
-              --arg status "$STATUS" \
-              '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:""}' |
-          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
-            "https://${ATR_HOST}/api/distribute/task/status"
-      env:
-        JWT: ${{ steps.create-github-jwt.outputs.jwt }}
-        RUN_ID: ${{ job.status }}
-        STATUS: ${{ job.check_run_id }}
-        INPUTS_PROJECT: ${{ inputs.project }}
+      - name: Report status back to ATR
+        shell: bash
+        if: always()
+        run: |
+          set -euxo pipefail
+          case "${ATR_HOST}" in
+            *.apache.org) ;;
+            *) echo "atr-host must match *.apache.org"; exit 1;;
+          esac
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg workflow github \
+                --arg run_id "$RUN_ID" \
+                --arg project_name "$INPUTS_PROJECT" \
+                --arg status "$STATUS" \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:""}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+              "https://${ATR_HOST}/api/distribute/task/status"
+        env:
+          JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+          RUN_ID: ${{ job.status }}
+          STATUS: ${{ job.check_run_id }}
+          INPUTS_PROJECT: ${{ inputs.project }}
 
-    - name: Record distribution on ATR
-      shell: bash
-      run: |
-        set -euxo pipefail
-        case "${ATR_HOST}" in
-          *.apache.org) ;;
-          *) echo "atr-host must match *.apache.org"; exit 1;;
-        esac
-        STAGING_JSON=false
-        [ "${INPUTS_STAGING}" = "true" ] && STAGING_JSON=true
-        DETAILS_JSON=false
-        [ "${INPUTS_DETAILS}" = "true" ] && DETAILS_JSON=true
-        jq -n --arg publisher github \
-              --arg jwt "$JWT" \
-              --arg version "$INPUTS_VERSION" \
-              --arg platform "maven" \
-              --arg distribution_owner_namespace "$INPUTS_DISTRIBUTION_OWNER_NAMESPACE" \
-              --arg distribution_package "$INPUTS_DISTRIBUTION_PACKAGE" \
-              --arg distribution_version "$INPUTS_DISTRIBUTION_VERSION" \
-              --argjson staging "$STAGING_JSON" \
-              --argjson details "$DETAILS_JSON" \
-              '{publisher:$publisher, jwt:$jwt, version:$version, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:$staging, details:$details}' |
-          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
-            "https://${ATR_HOST}/api/publisher/distribution/record"
-      env:
-        INPUTS_VERSION: ${{ inputs.version }}
-        INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
-        INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
-        INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
-        INPUTS_STAGING: ${{ inputs.staging }}
-        JWT: ${{ steps.create-github-jwt.outputs.jwt }}
-
-
-
+      - name: Record distribution on ATR
+        shell: bash
+        run: |
+          set -euxo pipefail
+          case "${ATR_HOST}" in
+            *.apache.org) ;;
+            *) echo "atr-host must match *.apache.org"; exit 1;;
+          esac
+          STAGING_JSON=false
+          [ "${INPUTS_STAGING}" = "true" ] && STAGING_JSON=true
+          DETAILS_JSON=false
+          [ "${INPUTS_DETAILS}" = "true" ] && DETAILS_JSON=true
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg version "$INPUTS_VERSION" \
+                --arg platform "maven" \
+                --arg distribution_owner_namespace "$INPUTS_DISTRIBUTION_OWNER_NAMESPACE" \
+                --arg distribution_package "$INPUTS_DISTRIBUTION_PACKAGE" \
+                --arg distribution_version "$INPUTS_DISTRIBUTION_VERSION" \
+                --argjson staging "$STAGING_JSON" \
+                --argjson details "$DETAILS_JSON" \
+                '{publisher:$publisher, jwt:$jwt, version:$version, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:$staging, details:$details}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+              "https://${ATR_HOST}/api/publisher/distribution/record"
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
+          INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
+          INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
+          INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
+          INPUTS_STAGING: ${{ inputs.staging }}
+          JWT: ${{ steps.create-github-jwt.outputs.jwt }}
