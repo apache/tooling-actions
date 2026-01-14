@@ -106,6 +106,30 @@ jobs:
           INPUTS_PHASE: ${{ inputs.phase }}
           INPUTS_ASF_UID: ${{ inputs.asf-uid }}
 
+      - name: Report status back to ATR
+        shell: bash
+        if: always()
+        run: |
+          set -euxo pipefail
+          case "${ATR_HOST}" in
+            *.apache.org) ;;
+            *) echo "atr-host must match *.apache.org"; exit 1;;
+          esac
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg workflow "$WORKFLOW" \
+                --arg run_id $RUN_ID \
+                --arg project_name "$INPUTS_PROJECT" \
+                --arg status "$STATUS" \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"Compiling distribution"}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+              "https://${ATR_HOST}/api/distribute/task/status"
+        env:
+          JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+          RUN_ID: ${{ github.run_id }}
+          STATUS: ${{ job.status }}
+          INPUTS_PROJECT: ${{ inputs.project }}
+
       - name: Download from ATR using rsync
         shell: bash
         run: |
@@ -147,7 +171,7 @@ jobs:
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg status "$STATUS" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"Compiling distribution"}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"Recording distribution"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
