@@ -1,15 +1,45 @@
 # ASF Tooling Actions
 
-This is the repository for GitHub Actions written and maintained by the Apache Software Foundation (ASF) Tooling team. Please note that ASF Tooling is an operational team, and, unlike Project Management Committees (PMCs), it does **not** make Board approved releases. You may also be looking for [ASF Infrastructure Actions](https://github.com/apache/infrastructure-actions) instead.
+This repository contains GitHub Actions written and maintained by the **Apache Software Foundation (ASF) Tooling team**.
 
-## Available actions
+**Note:** ASF Tooling is an operational team. Unlike Project Management Committees (PMCs), we do not make Board-approved releases.
 
-**NOTE: We do not tag versions. You must refer to every action by its pinned commit hash.**
+If you are looking for infrastructure-related actions, please visit [ASF Infrastructure Actions](https://github.com/apache/infrastructure-actions) instead.
+
+## Versioning Policy
+
+**We do not tag versions.** For security and stability, you must refer to every action by its **pinned commit hash** (SHA). Do not use `@main` or `@v1`.
+
+## Available Actions
 
 ### `apache/tooling-actions/upload-to-atr`
 
-[Upload your artifacts to ATR using OIDC and an ephemeral SSH key.](https://github.com/apache/tooling-actions/tree/main/upload-to-atr)
+![Status: Experimental](https://img.shields.io/badge/Status-EXPERIMENTAL-orange)
 
-Status: EXPERIMENTAL
+Upload your artifacts to the Apache Trusted Release (ATR) system using OIDC and an ephemeral SSH key.
 
-If you are a PMC release manager testing the ATR, please help us to test this action.
+#### Who is this for?
+
+If you are a PMC Release Manager testing the ATR, we need your help testing this action. Please report any issues you encounter.
+
+#### Usage Example
+
+Add the following to your workflow `.yml` file. Ensure you replace `<COMMIT_HASH>` with the full SHA of the specific commit you wish to use.
+
+```yaml
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@<COMMIT_HASH>
+
+      - name: Upload to ATR
+        uses: apache/tooling-actions/upload-to-atr@<COMMIT_HASH>
+        with:
+          # Add specific inputs here that are required by the action
+          # project: example
+          # version: ${{ github.ref_name }}
