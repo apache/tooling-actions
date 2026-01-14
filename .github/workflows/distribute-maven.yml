@@ -51,7 +51,7 @@ on:
         default: 'false'
 
 jobs:
-  upload:
+  distribute:
     permissions:
       id-token: write
       contents: read
@@ -59,6 +59,7 @@ jobs:
     env:
       ATR_HOST: release-test.apache.org
       SSH_PORT: 2222
+      WORKFLOW: distribute-maven.yml
     steps:
       - name: Create a GitHub OIDC JWT
         id: create-github-jwt
@@ -142,7 +143,7 @@ jobs:
           esac
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
-                --arg workflow github \
+                --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg status "$STATUS" \
@@ -223,7 +224,7 @@ jobs:
           esac
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
-                --arg workflow github \
+                --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg status "success" \
