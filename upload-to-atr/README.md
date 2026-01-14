@@ -33,7 +33,7 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@<COMMIT>
 
       - name: Build artifacts
         run: |
