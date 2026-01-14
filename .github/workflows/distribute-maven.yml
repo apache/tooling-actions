@@ -202,7 +202,7 @@ jobs:
                 --arg workflow github \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                --arg status "$STATUS" \
+                --arg status "failed" \
                 '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"Failed"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
