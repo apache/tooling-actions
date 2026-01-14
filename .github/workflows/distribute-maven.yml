@@ -194,18 +194,22 @@ jobs:
           [ "${INPUTS_DETAILS}" = "true" ] && DETAILS_JSON=true
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
+                --arg uid "$INPUTS_ASF_UID" \
+                --arg project "$INPUTS_PROJECT" \
                 --arg version "$INPUTS_VERSION" \
-                --arg platform "maven" \
+                --arg platform "MAVEN" \
                 --arg distribution_owner_namespace "$INPUTS_DISTRIBUTION_OWNER_NAMESPACE" \
                 --arg distribution_package "$INPUTS_DISTRIBUTION_PACKAGE" \
                 --arg distribution_version "$INPUTS_DISTRIBUTION_VERSION" \
                 --argjson staging "$STAGING_JSON" \
                 --argjson details "$DETAILS_JSON" \
-                '{publisher:$publisher, jwt:$jwt, version:$version, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:$staging, details:$details}' |
+                '{publisher:$publisher, jwt:$jwt, asf_uid:$uid, project:$project, version:$version, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:$staging, details:$details}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/record_from_workflow"
         env:
+          INPUTS_PROJECT: ${{ inputs.project }}
           INPUTS_VERSION: ${{ inputs.version }}
+          INPUTS_ASF_UID: ${{ inputs.asf-uid }}
           INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
           INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
