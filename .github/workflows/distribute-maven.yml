@@ -58,6 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ATR_HOST: release-test.apache.org
+      SSH_PORT: 2222
     steps:
       - name: Create a GitHub OIDC JWT
         id: create-github-jwt
@@ -108,7 +109,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          if ! [[ "${INPUTS_SSH_PORT}" =~ ^[0-9]+$ ]]
+          if ! [[ "${SSH_PORT}" =~ ^[0-9]+$ ]]
           then
             echo "::error::ssh-port must be an integer"
             exit 1
