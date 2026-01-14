@@ -186,6 +186,7 @@ jobs:
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
           INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
           INPUTS_STAGING: ${{ inputs.staging }}
+          INPUTS_DETAILS: "false"
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
 
       - name: Report status back to ATR
@@ -199,11 +200,11 @@ jobs:
           esac
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
-                --arg workflow github \
+                --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg status "failed" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"Failed"}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"GitHub workflow failed"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
@@ -212,7 +213,7 @@ jobs:
           STATUS: ${{ job.status }}
           INPUTS_PROJECT: ${{ inputs.project }}
 
-      
+
       - name: Report status back to ATR
         shell: bash
         if: success()
@@ -228,7 +229,7 @@ jobs:
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg status "success" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:'$status' message:"Completed"}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"GitHub workflow succeeded"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
