@@ -143,10 +143,10 @@ jobs:
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
                 --arg workflow github \
-                --arg run_id "$RUN_ID" \
+                --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg status "$STATUS" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:""}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"Compiling distribution"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
@@ -186,3 +186,52 @@ jobs:
           INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
           INPUTS_STAGING: ${{ inputs.staging }}
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+
+      - name: Report status back to ATR
+        shell: bash
+        if: failure()
+        run: |
+          set -euxo pipefail
+          case "${ATR_HOST}" in
+            *.apache.org) ;;
+            *) echo "atr-host must match *.apache.org"; exit 1;;
+          esac
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg workflow github \
+                --arg run_id $RUN_ID \
+                --arg project_name "$INPUTS_PROJECT" \
+                --arg status "$STATUS" \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"Failed"}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+              "https://${ATR_HOST}/api/distribute/task/status"
+        env:
+          JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+          RUN_ID: ${{ github.run_id }}
+          STATUS: ${{ job.status }}
+          INPUTS_PROJECT: ${{ inputs.project }}
+
+      
+      - name: Report status back to ATR
+        shell: bash
+        if: success()
+        run: |
+          set -euxo pipefail
+          case "${ATR_HOST}" in
+            *.apache.org) ;;
+            *) echo "atr-host must match *.apache.org"; exit 1;;
+          esac
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg workflow github \
+                --arg run_id $RUN_ID \
+                --arg project_name "$INPUTS_PROJECT" \
+                --arg status "success" \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:'$status' message:"Completed"}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+              "https://${ATR_HOST}/api/distribute/task/status"
+        env:
+          JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+          RUN_ID: ${{ github.run_id }}
+          STATUS: ${{ job.status }}
+          INPUTS_PROJECT: ${{ inputs.project }}
