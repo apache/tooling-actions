@@ -58,7 +58,44 @@ jobs:
       WORKFLOW: distribute-maven-stg.yml
       RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
       RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
-    steps:
+    steps:      
+    
+      - name: Create settings.xml
+        run: |
+            mkdir -p ~/.m2
+            cat > ~/.m2/settings.xml << 'EOF'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <settings>
+              <pluginGroups>
+                <pluginGroup>eu.maveniverse.maven.plugins</pluginGroup>
+              </pluginGroups>
+              <servers>
+                <server>
+                  <id>rao3</id>
+                  <username>${env.RAO_USERNAME}</username>
+                  <password>${env.RAO_PASSWORD}</password>
+                  <configuration>
+                    <njord.publisher>sonatype-nx3</njord.publisher>
+                    <njord.publisher.sonatype-nx3.baseUrl>https://repository.apache.org:4443/</njord.publisher.sonatype-nx3.baseUrl>
+                    <njord.publisher.sonatype-nx3.releaseRepositoryName>maven-staging</njord.publisher.sonatype-nx3.releaseRepositoryName>
+                  </configuration>
+                </server>
+              </servers>
+            </settings>
+            EOF
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+          overwrite-settings: false
+      - name: Set up Maven 3.9+
+        uses: stCarolas/setup-maven@d6af6abeda15e98926a57b5aa970a96bb37f97d1
+        with:
+          maven-version: 3.9.12
+          
       - name: Create a GitHub OIDC JWT
         id: create-github-jwt
         shell: bash
@@ -148,42 +185,6 @@ jobs:
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
           # INPUTS_DETAILS: ${{ inputs.details }}
           SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven
-      - name: Set up Maven 3.9+
-        uses: stCarolas/setup-maven@d6af6abeda15e98926a57b5aa970a96bb37f97d1
-        with:
-          maven-version: 3.9.12
-          
-      - name: Create settings.xml
-        run: |
-            mkdir -p ~/.m2
-            cat > ~/.m2/settings.xml << 'EOF'
-            <?xml version="1.0" encoding="UTF-8"?>
-            <settings>
-              <pluginGroups>
-                <pluginGroup>eu.maveniverse.maven.plugins</pluginGroup>
-              </pluginGroups>
-              <servers>
-                <server>
-                  <id>rao3</id>
-                  <username>${env.RAO_USERNAME}</username>
-                  <password>${env.RAO_PASSWORD}</password>
-                  <configuration>
-                    <njord.publisher>sonatype-nx3</njord.publisher>
-                    <njord.publisher.sonatype-nx3.baseUrl>https://repository.apache.org:4443/</njord.publisher.sonatype-nx3.baseUrl>
-                    <njord.publisher.sonatype-nx3.releaseRepositoryName>maven-staging</njord.publisher.sonatype-nx3.releaseRepositoryName>
-                  </configuration>
-                </server>
-              </servers>
-            </settings>
-            EOF
-
 
       - name: Build and stage locally
         run: |
