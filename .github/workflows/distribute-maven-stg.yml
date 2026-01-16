@@ -142,7 +142,6 @@ jobs:
 
       - name: Report status back to ATR
         shell: bash
-        if: always()
         run: |
           set -euxo pipefail
           jq -n --arg publisher github \
@@ -186,6 +185,7 @@ jobs:
           SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
 
       - name: Build and stage locally
+        working-directory: ./stg
         run: |
           mvn clean deploy -DaltDeploymentRepository=local::njord:
 
@@ -204,6 +204,7 @@ jobs:
 
 
       - name: Get store ID and publish
+        working-directory: ./stg
         run: |
           STORE_ID=$(mvn njord:list -q | grep -oP '$INPUTS_DISTRIBUTION_PACKAGE-\d+' | tail -1)
           echo "Publishing store: $STORE_ID"
@@ -215,7 +216,6 @@ jobs:
 
       - name: Report status back to ATR
         shell: bash
-        if: always()
         run: |
           set -euxo pipefail
           jq -n --arg publisher github \
