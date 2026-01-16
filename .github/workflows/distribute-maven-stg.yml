@@ -206,9 +206,8 @@ jobs:
       - name: Get store ID and publish
         working-directory: ./stg
         run: |
-          echo "Listing stores, looking for package: $INPUTS_DISTRIBUTION_PACKAGE"
-          mvn njord:list
-          STORE_ID=$(mvn njord:list -q | grep -oP '$INPUTS_DISTRIBUTION_PACKAGE-\d+' | tail -1)
+          mvn njord:list | grep -oP '$INPUTS_DISTRIBUTION_PACKAGE-\d+' | tail -1
+          STORE_ID=$(mvn njord:list | grep -oP '$INPUTS_DISTRIBUTION_PACKAGE-\d+' | tail -1)
           echo "Publishing store: $STORE_ID"
           mvn njord:validate -Dnjord.store=$STORE_ID -X
           mvn njord:publish -Dnjord.store=$STORE_ID -Dnjord.target=rao3 -X
