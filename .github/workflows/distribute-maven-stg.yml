@@ -208,9 +208,9 @@ jobs:
         run: |
           STORE_ID=$(mvn njord:list -q | grep -oP '$INPUTS_DISTRIBUTION_PACKAGE-\d+' | tail -1)
           echo "Publishing store: $STORE_ID"
-          mvn njord:validate -Dnjord.store=$STORE_ID
-          mvn njord:publish -Dnjord.store=$STORE_ID -Dnjord.target=rao3
-          mvn njord:drop -Dnjord.store=$STORE_ID
+          mvn njord:validate -Dnjord.store=$STORE_ID -X
+          mvn njord:publish -Dnjord.store=$STORE_ID -Dnjord.target=rao3 -X
+          mvn njord:drop -Dnjord.store=$STORE_ID -X
         env:
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
 
