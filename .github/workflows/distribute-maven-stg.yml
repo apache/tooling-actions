@@ -256,7 +256,6 @@ jobs:
 
 
       - name: Get store ID and publish
-        working-directory: ./stg
         run: |
           echo "Publishing store: $NJORD_STORE-00001"
           mvn njord:validate -Dnjord.store=$NJORD_STORE-00001
