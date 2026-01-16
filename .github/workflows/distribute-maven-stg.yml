@@ -72,8 +72,8 @@ jobs:
               <servers>
                 <server>
                   <id>rao3</id>
-                  <username>${env.RAO_USERNAME}</username>
-                  <password>${env.RAO_PASSWORD}</password>
+                  <username>${RAO_USERNAME}</username>
+                  <password>${RAO_PASSWORD}</password>
                   <configuration>
                     <njord.publisher>sonatype-nx3</njord.publisher>
                     <njord.publisher.sonatype-nx3.baseUrl>https://repository.apache.org:4443/</njord.publisher.sonatype-nx3.baseUrl>
@@ -208,6 +208,7 @@ jobs:
         run: |
           echo "Publishing store: $INPUTS_DISTRIBUTION_PACKAGE-00001"
           mvn njord:validate -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001 -X
+          cat ~/.m2/settings.xml
           mvn njord:publish -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001 -Dnjord.target=rao3 -X
           mvn njord:drop -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001 -X
         env:
