@@ -64,7 +64,7 @@ jobs:
       - name: Create settings.xml
         run: |
             mkdir -p ~/.m2
-            cat > ~/.m2/settings.xml << 'EOF'
+            cat > ~/.m2/settings.xml << EOF
             <?xml version="1.0" encoding="UTF-8"?>
             <settings>
               <pluginGroups>
@@ -83,11 +83,10 @@ jobs:
               </servers>
             </settings>
             EOF
-            cat ~/.m2/settings.xml
 
       - name: Create pom.xml
         run: |
-            cat > pom.xml << 'EOF'
+            cat > pom.xml << EOF
             <?xml version="1.0" encoding="UTF-8"?>
             <project xmlns="http://maven.apache.org/POM/4.0.0">
               <modelVersion>4.0.0</modelVersion>
@@ -107,7 +106,6 @@ jobs:
               </build>
             </project>
             EOF
-            cat pom.xml
 
       - name: Set up JDK 17
         uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e
