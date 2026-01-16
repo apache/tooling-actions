@@ -213,6 +213,7 @@ jobs:
           BASE="${INPUTS_DISTRIBUTION_PACKAGE}-${INPUTS_DISTRIBUTION_VERSION}"
 
           FILES="" CLASSIFIERS="" TYPES=""
+          shopt -s nullglob
           for f in "$DIR/${BASE}"-*.*; do
             # Skip checksums and signatures
             [[ "$f" =~ \.(asc|sha1|sha256|sha512|md5)$ ]] && continue
