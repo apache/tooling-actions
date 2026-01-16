@@ -208,8 +208,7 @@ jobs:
         run: |
           echo "Publishing store: $INPUTS_DISTRIBUTION_PACKAGE-00001"
           mvn njord:validate -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001 -X
-          cat ~/.m2/settings.xml
-          mvn njord:publish -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001 -Dnjord.target=rao3 -X
+          mvn njord:publish -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001 -Dnjord.target=rao3 -Dnjord.publisher.sonatype-nx3.releaseRepositoryName=maven-staging -X
           mvn njord:drop -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001 -X
         env:
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
