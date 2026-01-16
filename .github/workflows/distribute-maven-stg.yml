@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Distribute from ATR to Maven
+name: Distribute from ATR to Maven (stage - RAO)
 run-name: "${{ inputs.atr-id }}"
 
 on:
@@ -45,10 +45,6 @@ on:
       distribution-version:
         description: 'Distribution version'
         required: true
-      staging:
-        description: 'Use staging (true or false)'
-        required: false
-        default: 'false'
 
 jobs:
   distribute:
@@ -59,8 +55,22 @@ jobs:
     env:
       ATR_HOST: release-test.apache.org
       SSH_PORT: 2222
-      WORKFLOW: distribute-maven.yml
+      WORKFLOW: distribute-maven-stg.yml
+      RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
+      RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
     steps:
+      - name: Set up JDK 17
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+      - name: Set up Maven 3.9+
+        uses: stCarolas/setup-maven@d6af6abeda15e98926a57b5aa970a96bb37f97d1
+        with:
+          maven-version: 3.9.12
+
+
       - name: Create a GitHub OIDC JWT
         id: create-github-jwt
         shell: bash
@@ -111,10 +121,6 @@ jobs:
         if: always()
         run: |
           set -euxo pipefail
-          case "${ATR_HOST}" in
-            *.apache.org) ;;
-            *) echo "atr-host must match *.apache.org"; exit 1;;
-          esac
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
                 --arg workflow "$WORKFLOW" \
@@ -152,19 +158,67 @@ jobs:
           INPUTS_VERSION: ${{ inputs.version }}
           INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
-          INPUTS_STAGING: ${{ inputs.staging }}
           # INPUTS_DETAILS: ${{ inputs.details }}
           SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
+
+      - name: Create settings.xml
+        run: |
+            mkdir -p ~/.m2
+            cat > ~/.m2/settings.xml << 'EOF'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <settings>
+              <pluginGroups>
+                <pluginGroup>eu.maveniverse.maven.plugins</pluginGroup>
+              </pluginGroups>
+              <servers>
+                <server>
+                  <id>rao3</id>
+                  <username>${env.RAO_USERNAME}</username>
+                  <password>${env.RAO_PASSWORD}</password>
+                  <configuration>
+                    <njord.publisher>sonatype-nx3</njord.publisher>
+                    <njord.publisher.sonatype-nx3.baseUrl>https://repository.apache.org:4443/</njord.publisher.sonatype-nx3.baseUrl>
+                    <njord.publisher.sonatype-nx3.releaseRepositoryName>maven-staging</njord.publisher.sonatype-nx3.releaseRepositoryName>
+                  </configuration>
+                </server>
+              </servers>
+            </settings>
+            EOF
+
+
+      - name: Build and stage locally
+        run: |
+          mvn clean deploy -DaltDeploymentRepository=local::njord:
+
+      - name: Create staging tag
+        run: |
+          TAG_NAME="$INPUTS_DISTRIBUTION_OWNER_NAMESPACE-$INPUTS_DISTRIBUTION_PACKAGE-$INPUTS_DISTRIBUTION_VERSION"
+          curl -X POST -u "$RAO_USERNAME:$RAO_PASSWORD" \
+            "https://repository.apache.org:4443/service/rest/v1/tags" \
+            -H "Content-Type: application/json" \
+            -d "{\"name\": \"$TAG_NAME\"}"
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+        env:
+          INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
+          INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
+          INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
+
+
+      - name: Get store ID and publish
+        run: |
+          STORE_ID=$(mvn njord:list -q | grep -oP '$INPUTS_DISTRIBUTION_PACKAGE-\d+' | tail -1)
+          echo "Publishing store: $STORE_ID"
+          mvn njord:validate -Dnjord.store=$STORE_ID
+          mvn njord:publish -Dnjord.store=$STORE_ID -Dnjord.target=rao3
+          mvn njord:drop -Dnjord.store=$STORE_ID
+        env:
+          INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
 
       - name: Report status back to ATR
         shell: bash
         if: always()
         run: |
           set -euxo pipefail
-          case "${ATR_HOST}" in
-            *.apache.org) ;;
-            *) echo "atr-host must match *.apache.org"; exit 1;;
-          esac
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
                 --arg workflow "$WORKFLOW" \
@@ -184,12 +238,6 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          case "${ATR_HOST}" in
-            *.apache.org) ;;
-            *) echo "atr-host must match *.apache.org"; exit 1;;
-          esac
-          STAGING_JSON=false
-          [ "${INPUTS_STAGING}" = "true" ] && STAGING_JSON=true
           DETAILS_JSON=false
           [ "${INPUTS_DETAILS}" = "true" ] && DETAILS_JSON=true
           jq -n --arg publisher github \
@@ -202,9 +250,8 @@ jobs:
                 --arg distribution_owner_namespace "$INPUTS_DISTRIBUTION_OWNER_NAMESPACE" \
                 --arg distribution_package "$INPUTS_DISTRIBUTION_PACKAGE" \
                 --arg distribution_version "$INPUTS_DISTRIBUTION_VERSION" \
-                --argjson staging "$STAGING_JSON" \
                 --argjson details "$DETAILS_JSON" \
-                '{publisher:$publisher, jwt:$jwt, asf_uid:$uid, project:$project, version:$version, phase:$phase, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:$staging, details:$details}' |
+                '{publisher:$publisher, jwt:$jwt, asf_uid:$uid, project:$project, version:$version, phase:$phase, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:true, details:$details}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/record_from_workflow"
         env:
@@ -215,7 +262,6 @@ jobs:
           INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
           INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
-          INPUTS_STAGING: ${{ inputs.staging }}
           INPUTS_DETAILS: "false"
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
 
@@ -224,10 +270,6 @@ jobs:
         if: failure()
         run: |
           set -euxo pipefail
-          case "${ATR_HOST}" in
-            *.apache.org) ;;
-            *) echo "atr-host must match *.apache.org"; exit 1;;
-          esac
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
                 --arg workflow "$WORKFLOW" \
@@ -249,10 +291,6 @@ jobs:
         if: success()
         run: |
           set -euxo pipefail
-          case "${ATR_HOST}" in
-            *.apache.org) ;;
-            *) echo "atr-host must match *.apache.org"; exit 1;;
-          esac
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
                 --arg workflow "$WORKFLOW" \
