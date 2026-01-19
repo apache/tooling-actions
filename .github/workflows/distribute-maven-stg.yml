@@ -60,8 +60,8 @@ jobs:
       RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
       RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
       TAG_NAME: "${{ inputs.distribution-owner-namespace }}-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}"
-    steps:      
-    
+    steps:
+
       - name: Create settings.xml
         run: |
             mkdir -p ~/.m2
@@ -184,14 +184,12 @@ jobs:
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                --arg status "$STATUS" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"Compiling distribution"}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in-progress", message:"Compiling distribution"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
           RUN_ID: ${{ github.run_id }}
-          STATUS: ${{ job.status }}
           INPUTS_PROJECT: ${{ inputs.project }}
 
       - name: Download from ATR using rsync
@@ -280,14 +278,12 @@ jobs:
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                --arg status "$STATUS" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"Recording distribution"}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in-progress", message:"Recording distribution"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
           RUN_ID: ${{ github.run_id }}
-          STATUS: ${{ job.status }}
           INPUTS_PROJECT: ${{ inputs.project }}
 
       - name: Record distribution on ATR
