@@ -104,6 +104,16 @@ jobs:
                   </extension>
                 </extensions>
               </build>
+              <distributionManagement>
+                <repository>
+                  <id>rao3</id>
+                  <url>https://repository.apache.org:4443</url>
+                </repository>
+              </distributionManagement>
+
+              <properties>
+                <njord.publisher.sonatype-nx3.releaseRepositoryName>maven-staging</njord.publisher.sonatype-nx3.releaseRepositoryName>
+              </properties>
             </project>
             EOF
 
@@ -259,8 +269,8 @@ jobs:
       - name: Get store ID and publish
         run: |
           echo "Publishing store: $NJORD_STORE-00001"
-          mvn njord:validate -Dnjord.store=$NJORD_STORE-00001 -Dnjord.target=rao3 -Dnjord.publisher.sonatype-nx3.releaseRepositoryName=maven-staging -Dnjord.publisher=sonatype-nx3 -Dnjord.publisher.sonatype-nx3.baseUrl=https://repository.apache.org:4443
-          mvn njord:publish -Dnjord.store=$NJORD_STORE-00001 -Dnjord.target=rao3 -Dnjord.publisher.sonatype-nx3.releaseRepositoryName=maven-staging -Dnjord.publisher=sonatype-nx3 -Dnjord.publisher.sonatype-nx3.baseUrl=https://repository.apache.org:4443
+          mvn njord:validate -Dnjord.store=$NJORD_STORE-00001
+          mvn njord:publish -Dnjord.store=$NJORD_STORE-00001
           mvn njord:drop -Dnjord.store=$NJORD_STORE-00001
         env:
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
