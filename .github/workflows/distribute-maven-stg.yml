@@ -59,6 +59,7 @@ jobs:
       NJORD_STORE: njord-deployer
       RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
       RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
+      TAG_NAME: "${{ inputs.distribution-owner-namespace }}-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}"
     steps:      
     
       - name: Create settings.xml
@@ -113,6 +114,7 @@ jobs:
 
               <properties>
                 <njord.publisher.sonatype-nx3.releaseRepositoryName>maven-staging</njord.publisher.sonatype-nx3.releaseRepositoryName>
+                <njord.tag>${TAG_NAME}</njord.tag>
               </properties>
             </project>
             EOF
@@ -254,16 +256,10 @@ jobs:
 
       - name: Create staging tag
         run: |
-          TAG_NAME="$INPUTS_DISTRIBUTION_OWNER_NAMESPACE-$INPUTS_DISTRIBUTION_PACKAGE-$INPUTS_DISTRIBUTION_VERSION"
           curl -X POST -u "$RAO_USERNAME:$RAO_PASSWORD" \
             "https://repository.apache.org:4443/service/rest/v1/tags" \
             -H "Content-Type: application/json" \
             -d "{\"name\": \"$TAG_NAME\"}"
-          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
-        env:
-          INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
-          INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
-          INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
 
 
       - name: Get store ID and publish
