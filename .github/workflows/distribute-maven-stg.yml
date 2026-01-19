@@ -261,9 +261,12 @@ jobs:
 
 
       - name: Get store ID and publish
+        shell: bash
         run: |
-          echo "Publishing store: $NJORD_STORE-00001"
+          set -euxo pipefail
+          echo "Validating store: $NJORD_STORE-00001"
           mvn njord:validate -Dnjord.store=njord-deployer-00001 -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
+          echo "Publishing store: $NJORD_STORE-00001"
           mvn njord:publish -Dnjord.store=$NJORD_STORE-00001
           mvn njord:drop -Dnjord.store=$NJORD_STORE-00001
         env:
@@ -327,7 +330,7 @@ jobs:
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                --arg err "$([ -f .err ] && [ -s .err ] && echo "Build failed; $(cat .err)" || echo "")" \
+                --arg err "$([ -f .err ] && [ -s .err ] && echo "Build failed: $(cat .err)" || echo "")" \
                 --arg status "failed" \
                 '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:$err}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
