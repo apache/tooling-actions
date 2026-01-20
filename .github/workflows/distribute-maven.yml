@@ -55,7 +55,7 @@ jobs:
     env:
       ATR_HOST: release-test.apache.org
       SSH_PORT: 2222
-      WORKFLOW: distribute-maven-stg.yml
+      WORKFLOW: distribute-maven.yml
       NJORD_STORE: njord-deployer
       RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
       RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
@@ -73,12 +73,11 @@ jobs:
               </pluginGroups>
               <servers>
                 <server>
-                  <id>rao3</id>
-                  <username>${RAO_USERNAME}</username>
-                  <password>${RAO_PASSWORD}</password>
+                  <id>central</id>
+                  <username>${CENTRAL_USERNAME}</username>
+                  <password>${CENTRAL_PASSWORD}</password>
                   <configuration>
-                    <njord.publisher>sonatype-nx3</njord.publisher>
-                    <njord.publisher.sonatype-nx3.baseUrl>https://repository.apache.org:4443/</njord.publisher.sonatype-nx3.baseUrl>
+                    <njord.publisher>sonatype-cp</njord.publisher>
                   </configuration>
                 </server>
               </servers>
@@ -107,13 +106,11 @@ jobs:
               </build>
               <distributionManagement>
                 <repository>
-                  <id>rao3</id>
-                  <url>https://repository.apache.org:4443</url>
+                  <id>central</id>
                 </repository>
               </distributionManagement>
 
               <properties>
-                <njord.publisher.sonatype-nx3.releaseRepositoryName>maven-staging</njord.publisher.sonatype-nx3.releaseRepositoryName>
                 <njord.tag>${TAG_NAME}</njord.tag>
               </properties>
             </project>
@@ -265,21 +262,18 @@ jobs:
           INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
 
 
-      - name: Create staging tag
-        run: |
-          curl -X POST -u "$RAO_USERNAME:$RAO_PASSWORD" \
-            "https://repository.apache.org:4443/service/rest/v1/tags" \
-            -H "Content-Type: application/json" \
-            -d "{\"name\": \"$TAG_NAME\"}"
+      # - name: Create tag
+      #   run: |
+      #     curl -X POST -u "$CENTRAL_USERNAME:$CENTRAL_PASSWORD" \
+      #       "https://central.sonatype.com/service/rest/v1/tags" \
+      #       -H "Content-Type: application/json" \
+      #       -d "{\"name\": \"$TAG_NAME\"}"
 
 
       - name: Get store ID and publish
-        shell: bash
         run: |
-          set -euxo pipefail
-          echo "Validating store: $NJORD_STORE-00001"
-          mvn njord:validate -Dnjord.store=njord-deployer-00001 -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
           echo "Publishing store: $NJORD_STORE-00001"
+          mvn njord:validate -Dnjord.store=$NJORD_STORE-00001
           mvn njord:publish -Dnjord.store=$NJORD_STORE-00001
           mvn njord:drop -Dnjord.store=$NJORD_STORE-00001
         env:
@@ -343,9 +337,8 @@ jobs:
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                --arg err "$([ -f .err ] && [ -s .err ] && echo "Build failed: $(cat .err)" || echo "")" \
                 --arg status "failed" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:$err}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"GitHub workflow failed"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
