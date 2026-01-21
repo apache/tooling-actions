@@ -56,7 +56,7 @@ jobs:
       ATR_HOST: release-test.apache.org
       SSH_PORT: 2222
       WORKFLOW: distribute-maven-stg.yml
-      NJORD_STORE: njord-deployer
+      NJORD_STORE: atr-deployment-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}
       RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
       RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
       TAG_NAME: "${{ inputs.distribution-owner-namespace }}-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}"
