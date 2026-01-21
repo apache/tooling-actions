@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Distribute from ATR to Maven Central
+name: Distribute from ATR to RAO Maven Staging
 run-name: "${{ inputs.atr-id }}"
 
 on:
