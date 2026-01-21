@@ -225,9 +225,9 @@ jobs:
             [[ "$f" =~ \.(sha1|sha256|sha512|md5)$ ]] && continue
             [[ "$f" == "$DIR/${BASE}.jar" ]] && continue
             [[ "$f" == "$DIR/${BASE}.pom" ]] && continue
- 
+
             suffix="${f#$DIR/${BASE}}"
- 
+
             if [[ "$suffix" =~ ^\.([^.]+)\.asc$ ]]; then
               classifier=""
               type="${BASH_REMATCH[1]}.asc"
@@ -240,12 +240,12 @@ jobs:
             else
               continue
             fi
- 
+
             FILES="$FILES,$f"
             CLASSIFIERS="$CLASSIFIERS,$classifier"
             TYPES="$TYPES,$type"
           done
- 
+
           # Strip leading comma
           FILES="${FILES#,}"
           CLASSIFIERS="${CLASSIFIERS#,}"
@@ -274,7 +274,7 @@ jobs:
         run: |
           echo "Publishing store: $NJORD_STORE-00001"
           mvn njord:validate -Dnjord.store=$NJORD_STORE-00001
-          mvn njord:publish -Dnjord.store=$NJORD_STORE-00001
+          mvn njord:publish -Dnjord.store=$NJORD_STORE-00001 -Dnjord.publishingType=automatic
           mvn njord:drop -Dnjord.store=$NJORD_STORE-00001
         env:
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}

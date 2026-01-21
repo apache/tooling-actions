@@ -228,9 +228,9 @@ jobs:
             [[ "$f" =~ \.(sha1|sha256|sha512|md5)$ ]] && continue
             [[ "$f" == "$DIR/${BASE}.jar" ]] && continue
             [[ "$f" == "$DIR/${BASE}.pom" ]] && continue
- 
+
             suffix="${f#$DIR/${BASE}}"
- 
+
             if [[ "$suffix" =~ ^\.([^.]+)\.asc$ ]]; then
               classifier=""
               type="${BASH_REMATCH[1]}.asc"
@@ -243,12 +243,12 @@ jobs:
             else
               continue
             fi
- 
+
             FILES="$FILES,$f"
             CLASSIFIERS="$CLASSIFIERS,$classifier"
             TYPES="$TYPES,$type"
           done
- 
+
           # Strip leading comma
           FILES="${FILES#,}"
           CLASSIFIERS="${CLASSIFIERS#,}"
