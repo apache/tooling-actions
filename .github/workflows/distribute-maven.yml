@@ -280,6 +280,10 @@ jobs:
         env:
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
 
+      - name: Sleep for 30 seconds
+        run: sleep 30s
+        shell: bash
+
       - name: Report status back to ATR
         shell: bash
         run: |
