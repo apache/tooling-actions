@@ -57,8 +57,8 @@ jobs:
       SSH_PORT: 2222
       WORKFLOW: distribute-maven.yml
       NJORD_STORE: njord-deployer
-      RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
-      RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
+      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+      CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
       TAG_NAME: "${{ inputs.distribution-owner-namespace }}-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}"
     steps:
 
@@ -314,7 +314,7 @@ jobs:
                 --arg distribution_package "$INPUTS_DISTRIBUTION_PACKAGE" \
                 --arg distribution_version "$INPUTS_DISTRIBUTION_VERSION" \
                 --argjson details "$DETAILS_JSON" \
-                '{publisher:$publisher, jwt:$jwt, asf_uid:$uid, project:$project, version:$version, phase:$phase, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:true, details:$details}' |
+                '{publisher:$publisher, jwt:$jwt, asf_uid:$uid, project:$project, version:$version, phase:$phase, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:false, details:$details}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/record_from_workflow"
         env:
