@@ -208,7 +208,7 @@ jobs:
           rsync -av \
             -e "ssh -p 2222 -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
             -- \
-            "github@${ATR_HOST}:/${INPUTS_PROJECT}/${INPUTS_VERSION}/" ./stg/
+            "github@${ATR_HOST}:/${INPUTS_PROJECT}/${INPUTS_VERSION}/maven/" ./stg/
         env:
           INPUTS_PROJECT: ${{ inputs.project }}
           INPUTS_VERSION: ${{ inputs.version }}
