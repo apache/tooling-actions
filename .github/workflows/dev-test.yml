@@ -1,0 +1,51 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Test
+run-name: "can it be renamed?"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  distribute:
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create a GitHub OIDC JWT
+        id: create-github-jwt
+        shell: bash
+        run: |
+          set -euo pipefail
+          url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=atr-test-v1"
+          jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
+          echo "::add-mask::$jwt"
+          echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
+
+      - name: Register the ephemeral SSH key with ATR
+        shell: bash
+        run: |
+          set -euxo pipefail
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                '{publisher:$publisher, jwt:$jwt}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+              "https://interorbitally-palateless-jaunita.ngrok-free.dev/api/test"
+        env:
+          JWT: ${{ steps.create-github-jwt.outputs.jwt }}
