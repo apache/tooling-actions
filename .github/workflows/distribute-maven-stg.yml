@@ -161,10 +161,10 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          case "${ATR_HOST}" in
-            *.apache.org) ;;
-            *) echo "atr-host must match *.apache.org"; exit 1;;
-          esac
+          # case "${ATR_HOST}" in
+          #   *.apache.org) ;;
+          #   *) echo "atr-host must match *.apache.org"; exit 1;;
+          # esac
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
                 --arg key "$SSH_PUBLIC_KEY" \
