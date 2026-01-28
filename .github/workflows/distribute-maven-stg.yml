@@ -163,10 +163,10 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          # case "${ATR_HOST}" in
-          #   *.apache.org) ;;
-          #   *) echo "atr-host must match *.apache.org"; exit 1;;
-          # esac
+          case "${ATR_HOST}" in
+            *.apache.org) ;;
+            *) echo "atr-host must match *.apache.org"; exit 1;;
+          esac
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
                 --arg key "$SSH_PUBLIC_KEY" \
@@ -175,7 +175,7 @@ jobs:
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg version "$INPUTS_VERSION" \
                 '{publisher:$publisher, jwt:$jwt, ssh_key:$key, asf_uid:$uid, project_name:$project_name, phase:$phase, version:$version}' |
-            curl -sS --fail-with-body -k -X POST -H 'Content-Type: application/json' -d @- \
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/ssh/register"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
@@ -195,7 +195,7 @@ jobs:
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
                 '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in_progress", message:"Compiling distribution"}' |
-            curl -sS --fail-with-body -k -X POST -H 'Content-Type: application/json' -d @- \
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
@@ -353,10 +353,10 @@ jobs:
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                --arg err "$([ -f .err ] && [ -s .err ] && echo "Build failed: $(cat .err)" || echo "")" \
+                --arg err "$([ -f .err ] && [ -s .err ] && echo "Build failed: $(cat .err)" || echo "Github workflow failed")" \
                 --arg status "failed" \
                 '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:$err}' |
-            curl -sS --fail-with-body -k -X POST -H 'Content-Type: application/json' -d @- \
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
