@@ -69,7 +69,9 @@ jobs:
       RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
       TAG_NAME: "${{ inputs.distribution-owner-namespace }}-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}"
     steps:
-
+      - name: Sleep for 5 seconds
+        run: sleep 5s
+        shell: bash
       - name: Create settings.xml
         run: |
             mkdir -p ~/.m2
@@ -192,7 +194,7 @@ jobs:
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in-progress", message:"Compiling distribution"}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in_progress", message:"Compiling distribution"}' |
             curl -sS --fail-with-body -k -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
@@ -302,7 +304,7 @@ jobs:
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in-progress", message:"Recording distribution"}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in_progress", message:"Recording distribution"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
