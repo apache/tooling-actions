@@ -276,7 +276,7 @@ jobs:
       - name: Get store ID and publish
         run: |
           echo "Publishing store: $NJORD_STORE-00001"
-          mvn njord:validate -Dnjord.store=$NJORD_STORE-00001
+          mvn njord:validate -Dnjord.store=$NJORD_STORE-00001 -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
           mvn njord:publish -Dnjord.store=$NJORD_STORE-00001 -Dnjord.publishingType=automatic
           mvn njord:drop -Dnjord.store=$NJORD_STORE-00001
         env:
