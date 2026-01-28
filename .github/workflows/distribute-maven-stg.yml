@@ -24,8 +24,8 @@ on:
       atr-id:
         description: 'Run ID (from ATR)'
         required: true
-      atr-token:
-        description: 'ATR JWT Token'
+      asf-uid:
+        description: 'Originating user ID'
         required: true
       project:
         description: 'Project in ATR to pull files from'
@@ -45,6 +45,14 @@ on:
       distribution-version:
         description: 'Distribution version'
         required: true
+      atr-host:
+        description: 'ATR host (for testing purposes)'
+        required: false
+        default: 'release-test.apache.org'
+      ssh-port:
+        description: 'SSH port for ATR (for testing purposes)'
+        required: false
+        default: '2222'
 
 jobs:
   distribute:
@@ -53,8 +61,8 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     env:
-      ATR_HOST: release-test.apache.org
-      SSH_PORT: 2222
+      ATR_HOST: ${{ inputs.atr-host }}
+      SSH_PORT: ${{ inputs.ssh-port }}
       WORKFLOW: distribute-maven-stg.yml
       NJORD_STORE: atr-deployment-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}
       RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
@@ -157,12 +165,15 @@ jobs:
             *.apache.org) ;;
             *) echo "atr-host must match *.apache.org"; exit 1;;
           esac
-          jq -n --arg key "$SSH_PUBLIC_KEY" \
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg key "$SSH_PUBLIC_KEY" \
+                --arg uid "$INPUTS_ASF_UID" \
                 --arg phase "$INPUTS_PHASE" \
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg version "$INPUTS_VERSION" \
-                '{ssh_key:$key, project_name:$project_name, phase:$phase, version:$version}' |
-            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer $JWT' -H 'ATR-Auth: $INPUTS_ATR_TOKEN' -d @- \
+                '{publisher:$publisher, jwt:$jwt, ssh_key:$key, asf_uid:$uid, project_name:$project_name, phase:$phase, version:$version}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/ssh/register"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
@@ -170,23 +181,24 @@ jobs:
           INPUTS_PROJECT: ${{ inputs.project }}
           INPUTS_VERSION: ${{ inputs.version }}
           INPUTS_PHASE: ${{ inputs.phase }}
-          INPUTS_ATR_TOKEN: ${{ inputs.atr-token }}
+          INPUTS_ASF_UID: ${{ inputs.asf-uid }}
 
       - name: Report status back to ATR
         shell: bash
         run: |
           set -euxo pipefail
-          jq -n --arg workflow "$WORKFLOW" \
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                '{workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in-progress", message:"Compiling distribution"}' |
-            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer $JWT' -H 'ATR-Auth: $INPUTS_ATR_TOKEN' -d @- \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in-progress", message:"Compiling distribution"}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
           RUN_ID: ${{ github.run_id }}
           INPUTS_PROJECT: ${{ inputs.project }}
-          INPUTS_ATR_TOKEN: ${{ inputs.atr-token }}
 
       - name: Download from ATR using rsync
         shell: bash
@@ -285,17 +297,18 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          jq -n --arg workflow "$WORKFLOW" \
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
-                '{workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in-progress", message:"Recording distribution"}' |
-            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer $JWT' -H 'ATR-Auth: $INPUTS_ATR_TOKEN' -d @- \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in-progress", message:"Recording distribution"}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
           RUN_ID: ${{ github.run_id }}
           INPUTS_PROJECT: ${{ inputs.project }}
-          INPUTS_ATR_TOKEN: ${{ inputs.atr-token }}
 
       - name: Record distribution on ATR
         shell: bash
@@ -303,7 +316,10 @@ jobs:
           set -euxo pipefail
           DETAILS_JSON=false
           [ "${INPUTS_DETAILS}" = "true" ] && DETAILS_JSON=true
-          jq -n --arg project "$INPUTS_PROJECT" \
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg uid "$INPUTS_ASF_UID" \
+                --arg project "$INPUTS_PROJECT" \
                 --arg version "$INPUTS_VERSION" \
                 --arg phase "$INPUTS_PHASE" \
                 --arg platform "MAVEN" \
@@ -311,8 +327,8 @@ jobs:
                 --arg distribution_package "$INPUTS_DISTRIBUTION_PACKAGE" \
                 --arg distribution_version "$INPUTS_DISTRIBUTION_VERSION" \
                 --argjson details "$DETAILS_JSON" \
-                '{project:$project, version:$version, phase:$phase, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:true, details:$details}' |
-            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer $JWT' -H 'ATR-Auth: $INPUTS_ATR_TOKEN' -d @- \
+                '{publisher:$publisher, jwt:$jwt, asf_uid:$uid, project:$project, version:$version, phase:$phase, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:true, details:$details}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/record_from_workflow"
         env:
           INPUTS_PROJECT: ${{ inputs.project }}
@@ -324,27 +340,27 @@ jobs:
           INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
           INPUTS_DETAILS: "false"
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
-          INPUTS_ATR_TOKEN: ${{ inputs.atr-token }}
 
       - name: Report status back to ATR
         shell: bash
         if: failure()
         run: |
           set -euxo pipefail
-          jq -n --arg workflow "$WORKFLOW" \
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg err "$([ -f .err ] && [ -s .err ] && echo "Build failed: $(cat .err)" || echo "")" \
                 --arg status "failed" \
-                '{workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:$err}' |
-            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer $JWT' -H 'ATR-Auth: $INPUTS_ATR_TOKEN' -d @- \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:$err}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
           RUN_ID: ${{ github.run_id }}
           STATUS: ${{ job.status }}
           INPUTS_PROJECT: ${{ inputs.project }}
-          INPUTS_ATR_TOKEN: ${{ inputs.atr-token }}
 
 
       - name: Report status back to ATR
@@ -352,16 +368,17 @@ jobs:
         if: success()
         run: |
           set -euxo pipefail
-          jq -n --arg workflow "$WORKFLOW" \
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
                 --arg project_name "$INPUTS_PROJECT" \
                 --arg status "success" \
-                '{workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"GitHub workflow succeeded"}' |
-            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -H 'Authorization: Bearer $JWT' -H 'ATR-Auth: $INPUTS_ATR_TOKEN' -d @- \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"GitHub workflow succeeded"}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
           RUN_ID: ${{ github.run_id }}
           STATUS: ${{ job.status }}
           INPUTS_PROJECT: ${{ inputs.project }}
-          INPUTS_ATR_TOKEN: ${{ inputs.atr-token }}
