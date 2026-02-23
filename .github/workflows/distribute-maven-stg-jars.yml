@@ -95,6 +95,40 @@ jobs:
             </settings>
             EOF
 
+      - name: Create pom.xml
+        run: |
+            cat > pom.xml << EOF
+            <?xml version="1.0" encoding="UTF-8"?>
+            <project xmlns="http://maven.apache.org/POM/4.0.0">
+              <modelVersion>4.0.0</modelVersion>
+              <groupId>local</groupId>
+              <artifactId>${NJORD_STORE}</artifactId>
+              <version>1.0</version>
+              <packaging>pom</packaging>
+
+              <build>
+                <extensions>
+                  <extension>
+                    <groupId>eu.maveniverse.maven.njord</groupId>
+                    <artifactId>extension3</artifactId>
+                    <version>0.9.3</version>
+                  </extension>
+                </extensions>
+              </build>
+              <distributionManagement>
+                <repository>
+                  <id>rao3</id>
+                  <url>https://repository.apache.org:4443</url>
+                </repository>
+              </distributionManagement>
+
+              <properties>
+                <njord.publisher.sonatype-nx3.releaseRepositoryName>maven-staging</njord.publisher.sonatype-nx3.releaseRepositoryName>
+                <njord.tag>${TAG_NAME}</njord.tag>
+              </properties>
+            </project>
+            EOF
+
       - name: Set up JDK 17
         uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e
         with:
@@ -193,6 +227,54 @@ jobs:
           # INPUTS_DETAILS: ${{ inputs.details }}
           SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
 
+      - name: Build and stage locally
+        run: |
+          DIR="stg"
+          BASE="${INPUTS_DISTRIBUTION_PACKAGE}-${INPUTS_DISTRIBUTION_VERSION}"
+
+          FILES="" CLASSIFIERS="" TYPES=""
+          shopt -s nullglob
+          for f in "$DIR/${BASE}"*.*; do
+            [[ "$f" =~ \.(sha1|sha256|sha512|md5)$ ]] && continue
+            [[ "$f" == "$DIR/${BASE}.jar" ]] && continue
+            [[ "$f" == "$DIR/${BASE}.pom" ]] && continue
+
+            suffix="${f#$DIR/${BASE}}"
+
+            if [[ "$suffix" =~ ^\.([^.]+)\.asc$ ]]; then
+              classifier=""
+              type="${BASH_REMATCH[1]}.asc"
+            elif [[ "$suffix" =~ ^-([^.]+)\.([^.]+)\.asc$ ]]; then
+              classifier="${BASH_REMATCH[1]}"
+              type="${BASH_REMATCH[2]}.asc"
+            elif [[ "$suffix" =~ ^-([^.]+)\.([^.]+)$ ]]; then
+              classifier="${BASH_REMATCH[1]}"
+              type="${BASH_REMATCH[2]}"
+            else
+              continue
+            fi
+
+            FILES="$FILES,$f"
+            CLASSIFIERS="$CLASSIFIERS,$classifier"
+            TYPES="$TYPES,$type"
+          done
+
+          # Strip leading comma
+          FILES="${FILES#,}"
+          CLASSIFIERS="${CLASSIFIERS#,}"
+          TYPES="${TYPES#,}"
+
+          mvn deploy:deploy-file \
+            -Dfile="$DIR/${BASE}.jar" \
+            -DpomFile="$DIR/${BASE}.pom" \
+            -Durl=njord: \
+            -DrepositoryId=njord-local \
+            ${FILES:+-Dfiles="$FILES" -Dclassifiers="$CLASSIFIERS" -Dtypes="$TYPES"}
+        env:
+          INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
+          INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
+
+
       - name: Create staging tag
         run: |
           curl -X POST -u "$RAO_USERNAME:$RAO_PASSWORD" \
@@ -205,17 +287,13 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          echo "Importing Njord bundle"
-          mvn njord:import-all -Dnjord.dir=./stg
-          echo "Validating store: $INPUTS_DISTRIBUTION_PACKAGE-00001"
-          mvn njord:validate -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001 -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
-          echo "Publishing store: $INPUTS_DISTRIBUTION_PACKAGE-00001"
-          mvn njord:publish -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001
-          mvn njord:drop -Dnjord.store=$INPUTS_DISTRIBUTION_PACKAGE-00001
+          echo "Validating store: $NJORD_STORE-00001"
+          mvn njord:validate -Dnjord.store=$NJORD_STORE-00001 -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
+          echo "Publishing store: $NJORD_STORE-00001"
+          mvn njord:publish -Dnjord.store=$NJORD_STORE-00001
+          mvn njord:drop -Dnjord.store=$NJORD_STORE-00001
         env:
-          INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
-          INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
 
       - name: Report status back to ATR
         shell: bash
