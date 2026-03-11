@@ -83,19 +83,6 @@ jobs:
                   </configuration>
                 </server>
               </servers>
-              <profiles>
-                <profile>
-                  <id>njord</id>
-                  <properties>
-                    <!-- Njord configuration -->
-                    <njord.basedir>${user.home}/.njord</njord.basedir>
-                  </properties>
-                </profile>
-              </profiles>
-
-              <activeProfiles>
-                <activeProfile>njord</activeProfile>
-              </activeProfiles>
 
             </settings>
             EOF
