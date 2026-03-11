@@ -202,8 +202,65 @@ jobs:
           echo "Validating store: $NJORD_STORE"
           mvn njord:validate -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
           echo "Publishing store: $NJORD_STORE"
-          mvn njord:publish -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.publishingType=automatic
+          mvn njord:publish -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.publishingType=automatic 2>&1 | tee publish.log
           mvn njord:drop -Dnjord.store=$NJORD_STORE
+
+          DEPLOYMENT_ID=$(grep -oP 'Deployment ID:\s*\K\S+' publish.log || true)
+          echo "MAVEN_DEPLOYMENT_ID=$DEPLOYMENT_ID" >> "$GITHUB_ENV"
+
+      - name: Report status back to ATR
+        shell: bash
+        run: |
+          set -euxo pipefail
+          jq -n --arg publisher github \
+                --arg jwt "$JWT" \
+                --arg workflow "$WORKFLOW" \
+                --arg run_id $RUN_ID \
+                --arg project_name "$INPUTS_PROJECT" \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in_progress", message:"Verifying distribution status"}' |
+            curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
+              "https://${ATR_HOST}/api/distribute/task/status"
+        env:
+          JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+          RUN_ID: ${{ github.run_id }}
+          INPUTS_PROJECT: ${{ inputs.project }}
+
+      - name: Verify Maven Central deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$MAVEN_DEPLOYMENT_ID" ]; then
+            echo "::warning::No Deployment ID found; skipping verification"
+            exit 0
+          fi
+          echo "Polling Maven Central for deployment ID: $MAVEN_DEPLOYMENT_ID"
+          for i in $(seq 1 3); do
+            STATUS_JSON=$(curl -sS -X POST --fail-with-body \
+              -u "$CENTRAL_USERNAME:$CENTRAL_PASSWORD" \
+              "https://central.sonatype.com/api/v1/publisher/status?id=$MAVEN_DEPLOYMENT_ID")
+            DEPLOYMENT_STATE=$(echo "$STATUS_JSON" | jq -r '.deploymentState // empty')
+            ERRORS=$(echo "$STATUS_JSON" | jq -r '.errors // empty')
+            echo "Attempt $i: deployment state is '$DEPLOYMENT_STATE'"
+            case "$DEPLOYMENT_STATE" in
+              PUBLISHED)
+                echo "Deployment $MAVEN_DEPLOYMENT_ID confirmed PUBLISHED"
+                exit 0
+                ;;
+              FAILED)
+                echo "::error::Deployment $MAVEN_DEPLOYMENT_ID FAILED at Maven Central"
+                echo $ERRORS > .err
+                exit 1
+                ;;
+              VALIDATED|PUBLISHING|PENDING)
+                sleep 10
+                ;;
+              *)
+                echo "::warning::Unexpected deployment state '$DEPLOYMENT_STATE'"
+                exit 0
+                ;;
+            esac
+          done
+          echo "Deployment still in state '$DEPLOYMENT_STATE' after 30s; continuing"
 
       - name: Report status back to ATR
         shell: bash
