@@ -45,14 +45,6 @@ on:
       distribution-version:
         description: 'Distribution version'
         required: true
-      atr-host:
-        description: 'ATR host (for testing purposes)'
-        required: false
-        default: 'release-test.apache.org'
-      ssh-port:
-        description: 'SSH port for ATR (for testing purposes)'
-        required: false
-        default: '2222'
 
 jobs:
   distribute:
@@ -61,12 +53,12 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     env:
-      ATR_HOST: ${{ inputs.atr-host }}
-      SSH_PORT: ${{ inputs.ssh-port }}
+      ATR_HOST: release-test.apache.org
+      SSH_PORT: 2222
       WORKFLOW: distribute-maven.yml
       NJORD_STORE: atr-deployment-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}
-      RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
-      RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
+      CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+      CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
       TAG_NAME: "${{ inputs.distribution-owner-namespace }}-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}"
     steps:
       - name: Sleep for 5 seconds
@@ -201,7 +193,7 @@ jobs:
           echo "Validating store: $NJORD_STORE"
           mvn njord:validate -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
           echo "Publishing store: $NJORD_STORE"
-          mvn njord:publish -Dnjord.store=$NJORD_STORE
+          mvn njord:publish -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp
           mvn njord:drop -Dnjord.store=$NJORD_STORE
         env:
           INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
