@@ -202,7 +202,7 @@ jobs:
           echo "Validating store: $NJORD_STORE"
           mvn njord:validate -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
           echo "Publishing store: $NJORD_STORE"
-          mvn njord:publish -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.publishingType=automatic
+          mvn njord:publish -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.publishingType=automatic -Dnjord.serviceRedirect=central
           mvn njord:drop -Dnjord.store=$NJORD_STORE
 
       - name: Report status back to ATR
