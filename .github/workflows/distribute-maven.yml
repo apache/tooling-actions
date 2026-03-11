@@ -83,12 +83,11 @@ jobs:
               </pluginGroups>
               <servers>
                 <server>
-                  <id>rao3</id>
-                  <username>${RAO_USERNAME}</username>
-                  <password>${RAO_PASSWORD}</password>
+                  <id>central</id>
+                  <username>${CENTRAL_USERNAME}</username>
+                  <password>${CENTRAL_PASSWORD}</password>
                   <configuration>
-                    <njord.publisher>sonatype-nx3</njord.publisher>
-                    <njord.publisher.sonatype-nx3.baseUrl>https://repository.apache.org:4443/</njord.publisher.sonatype-nx3.baseUrl>
+                    <njord.publisher>sonatype-cp</njord.publisher>
                   </configuration>
                 </server>
               </servers>
