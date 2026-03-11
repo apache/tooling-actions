@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: Distribute from ATR to RAO Maven Staging
+name: Distribute from ATR to Maven Central
 run-name: "${{ inputs.atr-id }}"
 
 on:
@@ -84,6 +84,19 @@ jobs:
                 </server>
               </servers>
             </settings>
+            EOF
+      - name: Create extensions.xml
+        run: |
+            mkdir -p ~/.m2
+            cat > ~/.m2/extensions.xml << EOF
+            <?xml version="1.0" encoding="UTF-8"?>
+            <extensions>
+              <extension>
+                <groupId>eu.maveniverse.maven.plugins</groupId>
+                <artifactId>njord-maven-plugin</artifactId>
+                <version>0.9.4</version>
+              </extension>
+            </extensions>
             EOF
 
       - name: Set up JDK 17
@@ -168,8 +181,6 @@ jobs:
             echo "::error::ssh-port must be an integer"
             exit 1
           fi
-          : "${INPUTS_DISTRIBUTION_PACKAGE:?package is required}"
-          : "${INPUTS_VERSION:?version is required}"
           command -v rsync > /dev/null || { sudo apt-get update -y && sudo apt-get install -y rsync; }
           mkdir stg
           rsync -av \
@@ -179,8 +190,6 @@ jobs:
         env:
           INPUTS_PROJECT: ${{ inputs.project }}
           INPUTS_VERSION: ${{ inputs.version }}
-          INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
-          INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
           # INPUTS_DETAILS: ${{ inputs.details }}
           SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
 
@@ -193,12 +202,8 @@ jobs:
           echo "Validating store: $NJORD_STORE"
           mvn njord:validate -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
           echo "Publishing store: $NJORD_STORE"
-          mvn njord:publish -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp
+          mvn njord:publish -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.publishingType=automatic
           mvn njord:drop -Dnjord.store=$NJORD_STORE
-        env:
-          INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
-          INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
-          INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
 
       - name: Report status back to ATR
         shell: bash
