@@ -75,7 +75,7 @@ jobs:
               </pluginGroups>
               <servers>
                 <server>
-                  <id>central</id>
+                  <id>sonatype-cp</id>
                   <username>${CENTRAL_USERNAME}</username>
                   <password>${CENTRAL_PASSWORD}</password>
                   <configuration>
@@ -83,18 +83,31 @@ jobs:
                   </configuration>
                 </server>
               </servers>
+              <profiles>
+                <profile>
+                  <id>njord</id>
+                  <properties>
+                    <!-- Njord configuration -->
+                    <njord.basedir>${user.home}/.njord</njord.basedir>
+                  </properties>
+                </profile>
+              </profiles>
+
+              <activeProfiles>
+                <activeProfile>njord</activeProfile>
+              </activeProfiles>
+
             </settings>
             EOF
       - name: Create extensions.xml
         run: |
-            mkdir -p ~/.m2
             cat > ~/.m2/extensions.xml << EOF
             <?xml version="1.0" encoding="UTF-8"?>
             <extensions>
               <extension>
                 <groupId>eu.maveniverse.maven.plugins</groupId>
                 <artifactId>njord-maven-plugin</artifactId>
-                <version>0.9.4</version>
+                <version>${currentVersion}</version>
               </extension>
             </extensions>
             EOF
@@ -202,7 +215,7 @@ jobs:
           echo "Validating store: $NJORD_STORE"
           mvn njord:validate -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.details=true -q | sed -n '/Central Requirements/,/ArtifactStore.*failed validation/{/ArtifactStore.*failed validation/!s/^\[ERROR\] *//p}' | tee .err
           echo "Publishing store: $NJORD_STORE"
-          mvn njord:publish -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.publishingType=automatic -Dnjord.serviceRedirect=central
+          mvn njord:publish -Dnjord.store=$NJORD_STORE -Dnjord.publisher=sonatype-cp -Dnjord.publishingType=automatic
           mvn njord:drop -Dnjord.store=$NJORD_STORE
 
       - name: Report status back to ATR
