@@ -27,6 +27,8 @@ github:
     squash_commit_message: DEFAULT
     merge: false
     rebase: true
+  protected_branches:
+    main: {}
   custom_subjects:
     new_pr: "[PR] {title} ({repository})"
     close_pr: "Re: [PR] {title} ({repository})"
