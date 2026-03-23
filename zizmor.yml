@@ -1,0 +1,8 @@
+rules:
+  secrets-outside-env:
+    config:
+      allow:
+        - RAO_USERNAME
+        - RAO_PASSWORD
+        - CENTRAL_USERNAME
+        - CENTRAL_PASSWORD
