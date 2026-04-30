@@ -36,9 +36,11 @@ runs:
     - name: Create a GitHub OIDC JWT
       id: create-github-jwt
       shell: bash
+      env:
+        INPUTS_ATR_HOST: ${{ inputs.atr-host }}
       run: |
         set -euo pipefail
-        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=atr-test-v1"
+        url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://${INPUTS_ATR_HOST}/"
         jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
         echo "::add-mask::$jwt"
         echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
