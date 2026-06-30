@@ -27,6 +27,9 @@ on:
       asf-uid:
         description: 'Originating user ID'
         required: true
+      task_id:
+        description: 'Originating ATR Task ID'
+        required: true
       project:
         description: 'Project in ATR to pull files from'
         required: true
@@ -138,9 +141,10 @@ jobs:
                 --arg key "$SSH_PUBLIC_KEY" \
                 --arg uid "$INPUTS_ASF_UID" \
                 --arg phase "$INPUTS_PHASE" \
-                --arg project_name "$INPUTS_PROJECT" \
+                --arg project_key "$INPUTS_PROJECT" \
                 --arg version "$INPUTS_VERSION" \
-                '{publisher:$publisher, jwt:$jwt, ssh_key:$key, asf_uid:$uid, project_name:$project_name, phase:$phase, version:$version}' |
+                --arg task_id "$INPUTS_TASK_ID" \
+                '{publisher:$publisher, jwt:$jwt, ssh_key:$key, asf_uid:$uid, project_key:$project_key, phase:$phase, version:$version, task_id:$task_id}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/ssh/register"
         env:
@@ -150,6 +154,7 @@ jobs:
           INPUTS_VERSION: ${{ inputs.version }}
           INPUTS_PHASE: ${{ inputs.phase }}
           INPUTS_ASF_UID: ${{ inputs.asf-uid }}
+          INPUTS_TASK_ID: ${{ inputs.task_id }}
 
       - name: Report status back to ATR
         shell: bash
@@ -159,8 +164,8 @@ jobs:
                 --arg jwt "$JWT" \
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
-                --arg project_name "$INPUTS_PROJECT" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in_progress", message:"Compiling distribution"}' |
+                --arg project_key "$INPUTS_PROJECT" \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_key:$project_key, status:"in_progress", message:"Compiling distribution"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
@@ -225,8 +230,8 @@ jobs:
                 --arg jwt "$JWT" \
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
-                --arg project_name "$INPUTS_PROJECT" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:"in_progress", message:"Recording distribution"}' |
+                --arg project_key "$INPUTS_PROJECT" \
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_key:$project_key, status:"in_progress", message:"Recording distribution"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
@@ -250,8 +255,9 @@ jobs:
                 --arg distribution_owner_namespace "$INPUTS_DISTRIBUTION_OWNER_NAMESPACE" \
                 --arg distribution_package "$INPUTS_DISTRIBUTION_PACKAGE" \
                 --arg distribution_version "$INPUTS_DISTRIBUTION_VERSION" \
+                --arg task_id "$INPUTS_TASK_ID" \
                 --argjson details "$DETAILS_JSON" \
-                '{publisher:$publisher, jwt:$jwt, asf_uid:$uid, project:$project, version:$version, phase:$phase, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:true, details:$details}' |
+                '{publisher:$publisher, jwt:$jwt, asf_uid:$uid, project:$project, version:$version, phase:$phase, platform:$platform, distribution_owner_namespace:$distribution_owner_namespace, distribution_package:$distribution_package, distribution_version:$distribution_version, staging:true, details:$details, task_id:$task_id}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/record_from_workflow"
         env:
@@ -262,6 +268,7 @@ jobs:
           INPUTS_DISTRIBUTION_OWNER_NAMESPACE: ${{ inputs.distribution-owner-namespace }}
           INPUTS_DISTRIBUTION_PACKAGE: ${{ inputs.distribution-package }}
           INPUTS_DISTRIBUTION_VERSION: ${{ inputs.distribution-version }}
+          INPUTS_TASK_ID: ${{ inputs.task_id }}
           INPUTS_DETAILS: "false"
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
 
@@ -274,10 +281,10 @@ jobs:
                 --arg jwt "$JWT" \
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
-                --arg project_name "$INPUTS_PROJECT" \
+                --arg project_key "$INPUTS_PROJECT" \
                 --arg err "$([ -f .err ] && [ -s .err ] && echo "Build failed: $(cat .err)" || echo "Github workflow failed")" \
                 --arg status "failed" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:$err}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_key:$project_key, status:$status, message:$err}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:
@@ -296,9 +303,9 @@ jobs:
                 --arg jwt "$JWT" \
                 --arg workflow "$WORKFLOW" \
                 --arg run_id $RUN_ID \
-                --arg project_name "$INPUTS_PROJECT" \
+                --arg project_key "$INPUTS_PROJECT" \
                 --arg status "success" \
-                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_name:$project_name, status:$status, message:"GitHub workflow succeeded"}' |
+                '{publisher:$publisher, jwt:$jwt, workflow:$workflow, run_id:$run_id, project_key:$project_key, status:$status, message:"GitHub workflow succeeded"}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
               "https://${ATR_HOST}/api/distribute/task/status"
         env:

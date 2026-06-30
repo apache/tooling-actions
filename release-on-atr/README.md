@@ -17,7 +17,6 @@ Status: EXPERIMENTAL
 - **announce**: If `"true"`, announce the release. Default: `"false"`.
 - **announce-revision**: Revision number used for announcement. Required when `announce == "true"`.
 - **announce-email-to**: Announcement recipient mailing list address. Required when `announce == "true"`.
-- **announce-subject**: Announcement email subject. Required when `announce == "true"`.
 - **announce-body**: Announcement email body. Required when `announce == "true"`.
 - **announce-path-suffix**: Download path suffix. Required when `announce == "true"`.
 
@@ -68,7 +67,6 @@ jobs:
           announce: "true"
           announce-revision: 00005
           announce-email-to: dev@example.apache.org
-          announce-subject: "[ANNOUNCE] Apache Example ${{ github.ref_name }} released"
           announce-body: |
             The Apache Example team is pleased to announce...
           announce-path-suffix: example/${{ github.ref_name }}
@@ -98,7 +96,6 @@ jobs:
           announce: "true"
           announce-revision: 00005
           announce-email-to: dev@example.apache.org
-          announce-subject: "[ANNOUNCE] Apache Example ${{ github.ref_name }} released"
           announce-body: |
             The Apache Example team is pleased to announce...
           announce-path-suffix: example/${{ github.ref_name }}
