@@ -66,7 +66,7 @@ jobs:
     env:
       ATR_HOST: ${{ inputs.atr-host }}
       SSH_PORT: ${{ inputs.ssh-port }}
-      WORKFLOW: distribute-maven-stg.yml
+      WORKFLOW: distribute-mavencentral-stg.yml
       NJORD_STORE: atr-deployment-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}
       RAO_USERNAME: ${{ secrets.RAO_USERNAME }}
       RAO_PASSWORD: ${{ secrets.RAO_PASSWORD }}
