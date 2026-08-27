@@ -28,7 +28,7 @@ inputs:
   distribution-version: {description: "Distribution version", required: true}
   staging: {description: "Use staging (true or false)", default: "false"}
   details: {description: "Include detailed check (true or false)", default: "false"}
-  atr-host: {description: "ATR host", default: "release-test.apache.org"}
+  atr-host: {description: "ATR host", default: "releases.apache.org"}
 
 runs:
   using: "composite"

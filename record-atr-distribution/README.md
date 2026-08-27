@@ -17,7 +17,7 @@ Status: EXPERIMENTAL
 - **distribution-version (required)**: Distribution version.
 - **staging**: If `"true"`, use staging. Default: `"false"`.
 - **details**: If `"true"`, include detailed check. Default: `"false"`.
-- **atr-host**: ATR host. Default: `release-test.apache.org`. Must match `*.apache.org`.
+- **atr-host**: ATR host. Default: `releases.apache.org`. Must match `*.apache.org`.
 
 ## Example workflow
 

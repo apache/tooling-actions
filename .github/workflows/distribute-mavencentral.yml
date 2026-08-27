@@ -56,7 +56,7 @@ jobs:
       contents: read
     runs-on: ubuntu-latest
     env:
-      ATR_HOST: release-test.apache.org
+      ATR_HOST: releases.apache.org
       SSH_PORT: 2222
       WORKFLOW: distribute-mavencentral.yml
       NJORD_STORE: atr-deployment-${{ inputs.distribution-package }}-${{ inputs.distribution-version }}

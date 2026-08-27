@@ -22,7 +22,7 @@ branding: {icon: upload-cloud, color: blue}
 
 inputs:
   version: {description: "Release version", required: true}
-  atr-host: {description: "ATR host", default: "release-test.apache.org"}
+  atr-host: {description: "ATR host", default: "releases.apache.org"}
 
   resolve: {description: "Resolve vote (true or false)", default: "false"}
   resolve-resolution: {description: "Vote resolution (passed or failed)"}

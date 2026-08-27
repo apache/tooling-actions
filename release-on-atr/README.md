@@ -11,7 +11,7 @@ Status: EXPERIMENTAL
 ## Inputs
 
 - **version (required)**: Release version (e.g. `1.2.3`).
-- **atr-host**: ATR host. Default: `release-test.apache.org`. Must match `*.apache.org`.
+- **atr-host**: ATR host. Default: `releases.apache.org`. Must match `*.apache.org`.
 - **resolve**: If `"true"`, resolve the vote. Default: `"false"`.
 - **resolve-resolution**: Resolution when resolving: `passed` or `failed`. Required when `resolve == "true"`.
 - **announce**: If `"true"`, announce the release. Default: `"false"`.

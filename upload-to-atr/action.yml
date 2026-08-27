@@ -24,7 +24,7 @@ inputs:
   project: {description: "Project", required: true}
   version: {description: "Version", required: true}
   src: {description: "Local directory", default: "dist"}
-  atr-host: {description: "ATR host", default: "release-test.apache.org"}
+  atr-host: {description: "ATR host", default: "releases.apache.org"}
   ssh-port: {description: "SSH port", default: "2222"}
 
 runs:
