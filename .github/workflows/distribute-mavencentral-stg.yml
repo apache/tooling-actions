@@ -51,7 +51,7 @@ on:
       atr-host:
         description: 'ATR host (for testing purposes)'
         required: false
-        default: 'release-test.apache.org'
+        default: 'releases.apache.org'
       ssh-port:
         description: 'SSH port for ATR (for testing purposes)'
         required: false
