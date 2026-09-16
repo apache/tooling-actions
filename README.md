@@ -16,7 +16,7 @@ If you are looking for infrastructure-related actions, please visit [ASF Infrast
 
 ![Status: Experimental](https://img.shields.io/badge/Status-EXPERIMENTAL-orange)
 
-Upload your artifacts to the Apache Trusted Release (ATR) system using OIDC and an ephemeral SSH key.
+Upload your artifacts to the Apache Trusted Release (ATR) system using OIDC and an ephemeral SSH key, as part of the [ATR Trusted Publishing](https://releases.apache.org/docs/trusted-publishing) workflow.
 
 #### Who is this for?
 
