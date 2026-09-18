@@ -1,0 +1,7 @@
+# Dependencies of swhid.py, installed with `pip install --require-hashes`.
+asfswhid==0.1.1 \
+    --hash=sha256:c53463209b51ce81badffb0e7f4afdc3adb028521e22783fe99e2d7654843785 \
+    --hash=sha256:efad55e2b92453d7c60b7d722779e4fd98010d0fa4a5bc7537c7065791773c2f \
+    --hash=sha256:2f2b4b2ba269b05bddcfb086061c96f671e93cdf30ae63d30eba05061f90ee21 \
+    --hash=sha256:34be890bb403a8248263e7b628632e7d1bcaf11f1b620a1b0e9c07c9690376d8 \
+    --hash=sha256:2cb15a7859c779b756a033122ad0ab15be70f228a1c9175cf601fc62a1fbf09f
