@@ -6,7 +6,7 @@ apache/tooling-actions/upload-to-atr
 
 This composite GitHub Action registers a short lived SSH key with the ATR and then rsyncs a local directory to ATR at `/<project>/<version>/`. Use it to publish build artifacts to ATR without long lived credentials, as part of the [ATR Trusted Publishing](https://releases.apache.org/docs/trusted-publishing) workflow.
 
-Status: EXPERIMENTAL
+Status: PRODUCTION
 
 ## Inputs
 
