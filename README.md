@@ -14,7 +14,7 @@ If you are looking for infrastructure-related actions, please visit [ASF Infrast
 
 ### `apache/tooling-actions/upload-to-atr`
 
-![Status: Experimental](https://img.shields.io/badge/Status-EXPERIMENTAL-orange)
+![Status: Production](https://img.shields.io/badge/Status-PRODUCTION-blue)
 
 Upload your artifacts to the Apache Trusted Release (ATR) system using OIDC and an ephemeral SSH key, as part of the [ATR Trusted Publishing](https://releases.apache.org/docs/trusted-publishing) workflow.
 
