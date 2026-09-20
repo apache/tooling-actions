@@ -39,6 +39,11 @@ jobs:
         run: |
           ./build.sh
 
+      # see https://infra.apache.org/release-signing.html#automated-release-signing
+      - name: Sign artifacts
+        run: |
+          ./sign.sh
+
       - name: Upload to ATR
         uses: apache/tooling-actions/upload-to-atr@<COMMIT>
         with:
