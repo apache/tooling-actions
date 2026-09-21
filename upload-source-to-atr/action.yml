@@ -1,0 +1,99 @@
+---
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: "Compose, sign and upload a source release to ATR"
+description: "Create a reproducible source tarball with git archive, compute its SHA-512 checksum and SWHID, sign it and upload the files to ATR."
+branding: {icon: upload-cloud, color: blue}
+
+inputs:
+  project: {description: "ATR project", required: true}
+  version: {description: "ATR release version", required: true}
+  archive-prefix: {description: "Archive file name without the .tar.gz suffix (default: apache-<project>-<version>-src)", default: ""}
+  archive-directory: {description: "Name of the single top-level directory inside the archive (default: same as archive-prefix)", default: ""}
+  gpg-private-key: {description: "ASCII-armored GPG private key used for signing (usually secrets.<PMC>_GPG_SECRET_KEY)", required: true}
+  gpg-passphrase: {description: "Passphrase of the GPG private key, if any (usually secrets.<PMC>_GPG_PASSPHRASE)", default: ""}
+  gpg-fingerprint: {description: "Expected fingerprint of the primary signing key; the action fails if the imported key differs (usually vars.<PMC>_GPG_FINGERPRINT)", default: ""}
+  swhid: {description: "Compute the SWHID of the expanded archive (true or false)", default: "true"}
+  atr-host: {description: "ATR host", default: "releases.apache.org"}
+  ssh-port: {description: "SSH port", default: "2222"}
+
+outputs:
+  directory: {description: "Directory containing the archive, its checksum and its signature", value: "${{ steps.archive.outputs.directory }}"}
+  archive: {description: "File name of the archive", value: "${{ steps.archive.outputs.archive }}"}
+  commit: {description: "Commit that was archived", value: "${{ steps.archive.outputs.commit }}"}
+  sha512: {description: "SHA-512 checksum of the archive", value: "${{ steps.archive.outputs.sha512 }}"}
+  swhid: {description: "Directory SWHID of the expanded archive (empty if swhid is false)", value: "${{ steps.swhid.outputs.swhid }}"}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Create the source archive
+      id: archive
+      shell: bash
+      run: "$GITHUB_ACTION_PATH/archive.sh"
+      env:
+        INPUTS_PROJECT: ${{ inputs.project }}
+        INPUTS_VERSION: ${{ inputs.version }}
+        INPUTS_ARCHIVE_PREFIX: ${{ inputs.archive-prefix }}
+        INPUTS_ARCHIVE_DIRECTORY: ${{ inputs.archive-directory }}
+
+    - name: Set up Python for the SWHID computation
+      if: ${{ inputs.swhid == 'true' }}
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: "3.12"
+
+    - name: Compute the SWHID of the expanded archive
+      id: swhid
+      if: ${{ inputs.swhid == 'true' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        python -m venv "${RUNNER_TEMP}/upload-source-to-atr-venv"
+        "${RUNNER_TEMP}/upload-source-to-atr-venv/bin/python" -m pip install --quiet --require-hashes -r "${GITHUB_ACTION_PATH}/requirements.txt"
+        "${RUNNER_TEMP}/upload-source-to-atr-venv/bin/python" "${GITHUB_ACTION_PATH}/swhid.py"
+      env:
+        DIRECTORY: ${{ steps.archive.outputs.directory }}
+        ARCHIVE: ${{ steps.archive.outputs.archive }}
+        ARCHIVE_DIRECTORY: ${{ steps.archive.outputs.archive-directory }}
+        TREE: ${{ steps.archive.outputs.tree }}
+
+    - name: Import the GPG signing key
+      id: gpg
+      uses: crazy-max/ghaction-import-gpg@2dc316deee8e90f13e1a351ab510b4d5bc0c82cd # v7.0.0
+      with:
+        gpg_private_key: ${{ inputs.gpg-private-key }}
+        passphrase: ${{ inputs.gpg-passphrase }}
+
+    - name: Sign the source archive
+      shell: bash
+      run: "$GITHUB_ACTION_PATH/sign.sh"
+      env:
+        DIRECTORY: ${{ steps.archive.outputs.directory }}
+        ARCHIVE: ${{ steps.archive.outputs.archive }}
+        IMPORTED_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
+        EXPECTED_FINGERPRINT: ${{ inputs.gpg-fingerprint }}
+
+    - name: Upload to ATR
+      uses: $/upload-to-atr
+      with:
+        project: ${{ inputs.project }}
+        version: ${{ inputs.version }}
+        src: ${{ steps.archive.outputs.directory }}
+        atr-host: ${{ inputs.atr-host }}
+        ssh-port: ${{ inputs.ssh-port }}

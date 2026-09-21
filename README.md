@@ -43,3 +43,40 @@ jobs:
           # Add specific inputs here that are required by the action
           # project: example
           # version: ${{ github.ref_name }}
+
+### `apache/tooling-actions/upload-source-to-atr`
+
+![Status: Experimental](https://img.shields.io/badge/Status-EXPERIMENTAL-orange)
+
+Compose a source release candidate:
+create a reproducible source archive with `git archive`,
+compute its SHA-512 checksum and SWHID,
+sign it with the project's GPG key
+and upload the files to ATR.
+See the [action README](upload-source-to-atr/README.md) for all inputs.
+
+#### Usage Example
+
+```yaml
+jobs:
+  compose:
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@<COMMIT_HASH>
+        with:
+          persist-credentials: false
+
+      - name: Compose, sign and upload the source release
+        uses: apache/tooling-actions/upload-source-to-atr@<COMMIT_HASH>
+        with:
+          project: example
+          version: 1.2.3
+          gpg-private-key: ${{ secrets.EXAMPLE_GPG_SECRET_KEY }}
+          gpg-passphrase: ${{ secrets.EXAMPLE_GPG_PASSPHRASE }}
+          gpg-fingerprint: ${{ vars.EXAMPLE_GPG_FINGERPRINT }}
+```
