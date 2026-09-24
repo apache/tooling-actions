@@ -112,8 +112,7 @@ runs:
               --arg key "$SSH_PUBLIC_KEY" \
               --arg commit "$SOURCE_COMMIT" \
               '{publisher:$publisher, jwt:$jwt, ssh_key:$key, source_commit:$commit}' |
-          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
-            "https://${INPUTS_ATR_HOST}/api/publisher/ssh/register"
+          "$GITHUB_ACTION_PATH/../share/post-to-atr.sh" "https://${INPUTS_ATR_HOST}/api/publisher/ssh/register" "register the SSH key"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         JWT: ${{ steps.create-github-jwt.outputs.jwt }}

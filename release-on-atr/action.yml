@@ -123,8 +123,7 @@ runs:
               --arg version "$INPUTS_VERSION" \
               --arg resolution "$INPUTS_RESOLVE_RESOLUTION" \
               '{publisher:$publisher, jwt:$jwt, version:$version, resolution:$resolution}' |
-          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
-            "https://${INPUTS_ATR_HOST}/api/publisher/vote/resolve"
+          "$GITHUB_ACTION_PATH/../share/post-to-atr.sh" "https://${INPUTS_ATR_HOST}/api/publisher/vote/resolve" "resolve the vote"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         INPUTS_VERSION: ${{ inputs.version }}
@@ -152,8 +151,7 @@ runs:
               --arg body "$INPUTS_ANNOUNCE_BODY" \
               --arg path_suffix "$INPUTS_ANNOUNCE_PATH_SUFFIX" \
               '{publisher:$publisher, jwt:$jwt, version:$version, revision:$revision, email_to:$email_to, body:$body, path_suffix:$path_suffix}' |
-          curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
-            "https://${INPUTS_ATR_HOST}/api/publisher/release/announce"
+          "$GITHUB_ACTION_PATH/../share/post-to-atr.sh" "https://${INPUTS_ATR_HOST}/api/publisher/release/announce" "announce the release"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         INPUTS_VERSION: ${{ inputs.version }}
