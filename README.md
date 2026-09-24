@@ -43,3 +43,30 @@ jobs:
           # Add specific inputs here that are required by the action
           # project: example
           # version: ${{ github.ref_name }}
+```
+
+### `apache/tooling-actions/release-on-atr`
+
+![Status: Production](https://img.shields.io/badge/Status-PRODUCTION-blue)
+
+Resolve the vote on a release candidate, announce a release, or both, on the Apache Trusted Release (ATR) system using OIDC, as part of the [ATR Trusted Publishing](https://releases.apache.org/docs/trusted-publishing) workflow. See the [README](release-on-atr/README.md) for the inputs and the release policy that ATR needs.
+
+#### Usage Example
+
+```yaml
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for OIDC
+      contents: read
+    steps:
+      - name: Announce on ATR
+        uses: apache/tooling-actions/release-on-atr@<COMMIT_HASH>
+        with:
+          version: 1.2.3
+          announce: "true"
+          announce-email-to: announce@apache.org
+          announce-body: |
+            The Apache Example team is pleased to announce...
+```

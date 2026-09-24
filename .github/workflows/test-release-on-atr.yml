@@ -40,14 +40,10 @@ on:
         description: "Announce the release"
         type: boolean
         default: false
-      announce-revision:
-        description: "Revision to announce, e.g. 00005"
       announce-email-to:
         description: "Announcement recipient address"
       announce-body:
         description: "Announcement email body"
-      announce-path-suffix:
-        description: "Download path suffix"
 
 jobs:
   release:
@@ -69,7 +65,5 @@ jobs:
           resolve: ${{ inputs.resolve }}
           resolve-resolution: ${{ inputs.resolve-resolution }}
           announce: ${{ inputs.announce }}
-          announce-revision: ${{ inputs.announce-revision }}
           announce-email-to: ${{ inputs.announce-email-to }}
           announce-body: ${{ inputs.announce-body }}
-          announce-path-suffix: ${{ inputs.announce-path-suffix }}

@@ -28,10 +28,8 @@ inputs:
   resolve-resolution: {description: "Vote resolution (passed, failed or cancelled)"}
 
   announce: {description: "Announce release (true or false)", default: "false"}
-  announce-revision: {description: "Revision number to announce"}
   announce-email-to: {description: "Announcement recipient mailing list address"}
   announce-body: {description: "Announcement email body"}
-  announce-path-suffix: {description: "Download path suffix", default: ""}
 
 runs:
   using: "composite"
@@ -73,11 +71,6 @@ runs:
         fi
         if [[ "${INPUTS_ANNOUNCE}" == true ]]
         then
-          if ! [[ "${INPUTS_ANNOUNCE_REVISION}" =~ ^[0-9]+$ ]]
-          then
-            echo "::error::announce-revision must be a revision number, e.g. 00005"
-            exit 1
-          fi
           if [[ -z "${INPUTS_ANNOUNCE_EMAIL_TO}" ]]; then echo "::error::announce-email-to is required when announce is true"; exit 1; fi
           if [[ -z "${INPUTS_ANNOUNCE_BODY}" ]]; then echo "::error::announce-body is required when announce is true"; exit 1; fi
         fi
@@ -87,7 +80,6 @@ runs:
         INPUTS_RESOLVE: ${{ inputs.resolve }}
         INPUTS_RESOLVE_RESOLUTION: ${{ inputs.resolve-resolution }}
         INPUTS_ANNOUNCE: ${{ inputs.announce }}
-        INPUTS_ANNOUNCE_REVISION: ${{ inputs.announce-revision }}
         INPUTS_ANNOUNCE_EMAIL_TO: ${{ inputs.announce-email-to }}
         INPUTS_ANNOUNCE_BODY: ${{ inputs.announce-body }}
 
@@ -142,21 +134,18 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        # ATR treats an empty path suffix as not given
+        # ATR announces the latest revision when none is given, which is the one voted on
+        # ATR requires a path suffix but doesn't use it, and treats an empty one as not given
         jq -n --arg publisher github \
               --arg jwt "$JWT" \
               --arg version "$INPUTS_VERSION" \
-              --arg revision "$INPUTS_ANNOUNCE_REVISION" \
               --arg email_to "$INPUTS_ANNOUNCE_EMAIL_TO" \
               --arg body "$INPUTS_ANNOUNCE_BODY" \
-              --arg path_suffix "$INPUTS_ANNOUNCE_PATH_SUFFIX" \
-              '{publisher:$publisher, jwt:$jwt, version:$version, revision:$revision, email_to:$email_to, body:$body, path_suffix:$path_suffix}' |
+              '{publisher:$publisher, jwt:$jwt, version:$version, email_to:$email_to, body:$body, path_suffix:""}' |
           "$GITHUB_ACTION_PATH/../share/post-to-atr.sh" "https://${INPUTS_ATR_HOST}/api/publisher/release/announce" "announce the release"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         INPUTS_VERSION: ${{ inputs.version }}
-        INPUTS_ANNOUNCE_REVISION: ${{ inputs.announce-revision }}
         INPUTS_ANNOUNCE_EMAIL_TO: ${{ inputs.announce-email-to }}
         INPUTS_ANNOUNCE_BODY: ${{ inputs.announce-body }}
-        INPUTS_ANNOUNCE_PATH_SUFFIX: ${{ inputs.announce-path-suffix }}
         JWT: ${{ steps.create-github-jwt.outputs.jwt }}
