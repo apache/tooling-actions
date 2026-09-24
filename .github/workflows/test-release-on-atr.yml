@@ -1,0 +1,75 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Test release-on-atr
+run-name: "Test release-on-atr ${{ inputs.version }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, e.g. 1.2.3"
+        required: true
+      atr-host:
+        description: "ATR host"
+        default: "releases.apache.org"
+      resolve:
+        description: "Resolve the vote"
+        type: boolean
+        default: false
+      resolve-resolution:
+        description: "Vote resolution"
+        type: choice
+        options: ["", passed, failed, cancelled]
+        default: ""
+      announce:
+        description: "Announce the release"
+        type: boolean
+        default: false
+      announce-revision:
+        description: "Revision to announce, e.g. 00005"
+      announce-email-to:
+        description: "Announcement recipient address"
+      announce-body:
+        description: "Announcement email body"
+      announce-path-suffix:
+        description: "Download path suffix"
+
+jobs:
+  release:
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      # Use the action from the branch the workflow was dispatched on, so that changes can be tested before merging
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Release on ATR
+        uses: ./release-on-atr
+        with:
+          version: ${{ inputs.version }}
+          atr-host: ${{ inputs.atr-host }}
+          resolve: ${{ inputs.resolve }}
+          resolve-resolution: ${{ inputs.resolve-resolution }}
+          announce: ${{ inputs.announce }}
+          announce-revision: ${{ inputs.announce-revision }}
+          announce-email-to: ${{ inputs.announce-email-to }}
+          announce-body: ${{ inputs.announce-body }}
+          announce-path-suffix: ${{ inputs.announce-path-suffix }}
