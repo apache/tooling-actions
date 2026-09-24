@@ -106,12 +106,12 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        # ATR treats an empty source commit as not declared
         jq -n --arg publisher github \
               --arg jwt "$JWT" \
               --arg key "$SSH_PUBLIC_KEY" \
               --arg commit "$SOURCE_COMMIT" \
-              '{publisher:$publisher, jwt:$jwt, ssh_key:$key}
-                + (if $commit == "" then {} else {source_commit:$commit} end)' |
+              '{publisher:$publisher, jwt:$jwt, ssh_key:$key, source_commit:$commit}' |
           curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
             "https://${INPUTS_ATR_HOST}/api/publisher/ssh/register"
       env:
