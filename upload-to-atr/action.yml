@@ -26,6 +26,7 @@ inputs:
   src: {description: "Local directory", default: "dist"}
   atr-host: {description: "ATR host", default: "releases.apache.org"}
   ssh-port: {description: "SSH port", default: "2222"}
+  source-commit: {description: "Commit the upload was built from", default: ""}
 
 runs:
   using: "composite"
@@ -37,8 +38,24 @@ runs:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
       run: |
         set -euo pipefail
+        # Check the host before minting a token, as the token is later sent to it
+        if ! [[ "${INPUTS_ATR_HOST}" =~ ^[A-Za-z0-9.-]+\.apache\.org$ ]]
+        then
+          echo "::error::atr-host must be a host name ending in .apache.org"
+          exit 1
+        fi
+        if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]
+        then
+          echo "::error::Unable to request a GitHub OIDC token - the job needs the 'id-token: write' permission"
+          exit 1
+        fi
         url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://${INPUTS_ATR_HOST}/"
-        jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
+        jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r '.value // empty')"
+        if [[ -z "$jwt" ]]
+        then
+          echo "::error::GitHub did not return an OIDC token"
+          exit 1
+        fi
         echo "::add-mask::$jwt"
         echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
 
@@ -51,24 +68,57 @@ runs:
         echo "ssh_private_key_path=$RUNNER_TEMP/ssh_key" >> "$GITHUB_OUTPUT"
         echo "ssh_public_key=$(cat "$RUNNER_TEMP/ssh_key.pub")" >> "$GITHUB_OUTPUT"
 
+    - name: Determine the source commit
+      id: source-commit
+      shell: bash
+      run: |
+        set -euo pipefail
+        commit="${INPUTS_SOURCE_COMMIT,,}"
+        if [[ -z "$commit" ]]
+        then
+          # Only use the workspace checkout if it's of this repository, otherwise we'd declare an unrelated commit
+          if origin="$(git -C "$GITHUB_WORKSPACE" remote get-url origin 2> /dev/null)"
+          then
+            origin="${origin%.git}"
+            if [[ "${origin,,}" == "${GITHUB_SERVER_URL,,}/${GITHUB_REPOSITORY,,}" ]]
+            then
+              commit="$(git -C "$GITHUB_WORKSPACE" rev-parse HEAD)"
+            fi
+          fi
+        fi
+        if [[ -n "$commit" ]]
+        then
+          if ! [[ "$commit" =~ ^[0-9a-f]{40}$ ]]
+          then
+            echo "::error::source-commit must be a 40 character commit hash"
+            exit 1
+          fi
+          if [[ "$commit" != "$GITHUB_SHA" ]]
+          then
+            echo "::notice::Declaring source commit $commit, which differs from the triggering commit $GITHUB_SHA"
+          fi
+        fi
+        echo "source_commit=$commit" >> "$GITHUB_OUTPUT"
+      env:
+        INPUTS_SOURCE_COMMIT: ${{ inputs.source-commit }}
+
     - name: Register the ephemeral SSH key with ATR
       shell: bash
       run: |
-        set -euxo pipefail
-        case "${INPUTS_ATR_HOST}" in
-          *.apache.org) ;;
-          *) echo "atr-host must match *.apache.org"; exit 1;;
-        esac
+        set -euo pipefail
         jq -n --arg publisher github \
               --arg jwt "$JWT" \
               --arg key "$SSH_PUBLIC_KEY" \
-              '{publisher:$publisher, jwt:$jwt, ssh_key:$key}' |
+              --arg commit "$SOURCE_COMMIT" \
+              '{publisher:$publisher, jwt:$jwt, ssh_key:$key}
+                + (if $commit == "" then {} else {source_commit:$commit} end)' |
           curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
             "https://${INPUTS_ATR_HOST}/api/publisher/ssh/register"
       env:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
         JWT: ${{ steps.create-github-jwt.outputs.jwt }}
         SSH_PUBLIC_KEY: ${{ steps.generate-ssh-key.outputs.ssh_public_key }}
+        SOURCE_COMMIT: ${{ steps.source-commit.outputs.source_commit }}
 
     - name: Upload to ATR using rsync
       shell: bash
