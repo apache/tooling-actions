@@ -25,17 +25,72 @@ inputs:
   atr-host: {description: "ATR host", default: "releases.apache.org"}
 
   resolve: {description: "Resolve vote (true or false)", default: "false"}
-  resolve-resolution: {description: "Vote resolution (passed or failed)"}
+  resolve-resolution: {description: "Vote resolution (passed, failed or cancelled)"}
 
   announce: {description: "Announce release (true or false)", default: "false"}
   announce-revision: {description: "Revision number to announce"}
   announce-email-to: {description: "Announcement recipient mailing list address"}
   announce-body: {description: "Announcement email body"}
-  announce-path-suffix: {description: "Download path suffix"}
+  announce-path-suffix: {description: "Download path suffix", default: ""}
 
 runs:
   using: "composite"
   steps:
+    - name: Check the inputs
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Check everything before minting a token, so that a bad input can't leave a half finished release
+        if ! [[ "${INPUTS_ATR_HOST}" =~ ^[A-Za-z0-9.-]+\.apache\.org$ ]]
+        then
+          echo "::error::atr-host must be a host name ending in .apache.org"
+          exit 1
+        fi
+        if [[ -z "${INPUTS_VERSION}" ]]; then echo "::error::version is required"; exit 1; fi
+        for flag in "resolve=${INPUTS_RESOLVE}" "announce=${INPUTS_ANNOUNCE}"
+        do
+          case "${flag#*=}" in
+            true|false) ;;
+            *) echo "::error::${flag%%=*} must be true or false"; exit 1;;
+          esac
+        done
+        if [[ "${INPUTS_RESOLVE}" == false && "${INPUTS_ANNOUNCE}" == false ]]
+        then
+          echo "::error::Nothing to do - set resolve or announce to true"
+          exit 1
+        fi
+        if [[ "${INPUTS_RESOLVE}" == true ]]
+        then
+          case "${INPUTS_RESOLVE_RESOLUTION}" in
+            passed|failed|cancelled) ;;
+            *) echo "::error::resolve-resolution must be passed, failed or cancelled"; exit 1;;
+          esac
+          if [[ "${INPUTS_ANNOUNCE}" == true && "${INPUTS_RESOLVE_RESOLUTION}" != passed ]]
+          then
+            echo "::error::Can only announce a release whose vote passed"
+            exit 1
+          fi
+        fi
+        if [[ "${INPUTS_ANNOUNCE}" == true ]]
+        then
+          if ! [[ "${INPUTS_ANNOUNCE_REVISION}" =~ ^[0-9]+$ ]]
+          then
+            echo "::error::announce-revision must be a revision number, e.g. 00005"
+            exit 1
+          fi
+          if [[ -z "${INPUTS_ANNOUNCE_EMAIL_TO}" ]]; then echo "::error::announce-email-to is required when announce is true"; exit 1; fi
+          if [[ -z "${INPUTS_ANNOUNCE_BODY}" ]]; then echo "::error::announce-body is required when announce is true"; exit 1; fi
+        fi
+      env:
+        INPUTS_ATR_HOST: ${{ inputs.atr-host }}
+        INPUTS_VERSION: ${{ inputs.version }}
+        INPUTS_RESOLVE: ${{ inputs.resolve }}
+        INPUTS_RESOLVE_RESOLUTION: ${{ inputs.resolve-resolution }}
+        INPUTS_ANNOUNCE: ${{ inputs.announce }}
+        INPUTS_ANNOUNCE_REVISION: ${{ inputs.announce-revision }}
+        INPUTS_ANNOUNCE_EMAIL_TO: ${{ inputs.announce-email-to }}
+        INPUTS_ANNOUNCE_BODY: ${{ inputs.announce-body }}
+
     - name: Create a GitHub OIDC JWT
       id: create-github-jwt
       shell: bash
@@ -43,8 +98,18 @@ runs:
         INPUTS_ATR_HOST: ${{ inputs.atr-host }}
       run: |
         set -euo pipefail
+        if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]
+        then
+          echo "::error::Unable to request a GitHub OIDC token - the job needs the 'id-token: write' permission"
+          exit 1
+        fi
         url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://${INPUTS_ATR_HOST}/"
-        jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
+        jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r '.value // empty')"
+        if [[ -z "$jwt" ]]
+        then
+          echo "::error::GitHub did not return an OIDC token"
+          exit 1
+        fi
         echo "::add-mask::$jwt"
         echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
 
@@ -52,12 +117,7 @@ runs:
       if: ${{ inputs.resolve == 'true' }}
       shell: bash
       run: |
-        set -euxo pipefail
-        case "${INPUTS_ATR_HOST}" in
-          *.apache.org) ;;
-          *) echo "atr-host must match *.apache.org"; exit 1;;
-        esac
-        : "${INPUTS_RESOLVE_RESOLUTION:?resolve-resolution is required when resolve == true}"
+        set -euo pipefail
         jq -n --arg publisher github \
               --arg jwt "$JWT" \
               --arg version "$INPUTS_VERSION" \
@@ -82,15 +142,8 @@ runs:
       if: ${{ inputs.announce == 'true' }}
       shell: bash
       run: |
-        set -euxo pipefail
-        case "${INPUTS_ATR_HOST}" in
-          *.apache.org) ;;
-          *) echo "atr-host must match *.apache.org"; exit 1;;
-        esac
-        : "${INPUTS_ANNOUNCE_REVISION:?announce-revision is required when announce == true}"
-        : "${INPUTS_ANNOUNCE_EMAIL_TO:?announce-email-to is required when announce == true}"
-        : "${INPUTS_ANNOUNCE_BODY:?announce-body is required when announce == true}"
-        : "${INPUTS_ANNOUNCE_PATH_SUFFIX:?announce-path-suffix is required when announce == true}"
+        set -euo pipefail
+        # ATR treats an empty path suffix as not given
         jq -n --arg publisher github \
               --arg jwt "$JWT" \
               --arg version "$INPUTS_VERSION" \
