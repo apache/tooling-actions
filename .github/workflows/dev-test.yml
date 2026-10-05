@@ -16,7 +16,7 @@
 # under the License.
 
 name: Test
-run-name: "can it be renamed?"
+run-name: "test run"
 
 on:
   workflow_dispatch:
@@ -26,7 +26,12 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    runs-on: ubuntu-latest
+    runs-on:
+      - runs-on=${{ github.run_id }}
+      - cpu=8
+      - family=c7i
+      - image=ubuntu24-full-x64
+      - tag=infra
     steps:
       - name: Create a GitHub OIDC JWT
         id: create-github-jwt
@@ -38,14 +43,37 @@ jobs:
           echo "::add-mask::$jwt"
           echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
 
+
+      - name: Generate an ephemeral SSH key
+        id: generate-ssh-key
+        shell: bash
+        run: |
+          set -euxo pipefail
+          ssh-keygen -t ed25519 -N "" -f "$RUNNER_TEMP/ssh_key"
+          echo "ssh_private_key_path=$RUNNER_TEMP/ssh_key" >> "$GITHUB_OUTPUT"
+          echo "ssh_public_key=$(cat "$RUNNER_TEMP/ssh_key.pub")" >> "$GITHUB_OUTPUT"
+
       - name: Register the ephemeral SSH key with ATR
         shell: bash
         run: |
           set -euxo pipefail
           jq -n --arg publisher github \
                 --arg jwt "$JWT" \
-                '{publisher:$publisher, jwt:$jwt}' |
+                --arg key "$SSH_PUBLIC_KEY" \
+                '{publisher:$publisher, jwt:$jwt, ssh_key:$key}' |
             curl -sS --fail-with-body -X POST -H 'Content-Type: application/json' -d @- \
-              "https://interorbitally-palateless-jaunita.ngrok-free.dev/api/test"
+              "https://releases-stage.apache.org/api/publisher/ssh/register"
         env:
           JWT: ${{ steps.create-github-jwt.outputs.jwt }}
+          SSH_PUBLIC_KEY: ${{ steps.generate-ssh-key.outputs.ssh_public_key }}
+
+      - name: Download from ATR using rsync
+        shell: bash
+        run: |
+          command -v rsync > /dev/null || { sudo apt-get update -y && sudo apt-get install -y rsync; }
+          rsync -av \
+            -e "ssh -p 2222 -i $SSH_PRIVATE_KEY_PATH -o StrictHostKeyChecking=accept-new" \
+            -- \
+            "github@releases-stage.apache.org:/tooling-actions/0.1/" ./
+        env:
+          SSH_PRIVATE_KEY_PATH: ${{ steps.generate-ssh-key.outputs.ssh_private_key_path }}
