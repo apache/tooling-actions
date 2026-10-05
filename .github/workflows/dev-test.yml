@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=releases-stage.apache.org"
+          url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://releases-stage.apache.org/"
           jwt="$(curl -sS --fail-with-body -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url" | jq -r .value)"
           echo "::add-mask::$jwt"
           echo "jwt=$jwt" >> "$GITHUB_OUTPUT"
