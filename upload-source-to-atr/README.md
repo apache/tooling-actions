@@ -7,7 +7,8 @@ apache/tooling-actions/upload-source-to-atr
 This composite GitHub Action creates a reproducible source archive of the checked-out commit with `git archive`,
 computes its SHA-512 checksum and the [SWHID](https://swhid.org/) of its content,
 signs it with a GPG key,
-and uploads the archive and its signature to ATR at `/<project>/<version>/` using the [`upload-to-atr`](../upload-to-atr/README.md) action.
+and uploads the archive and its signature to ATR at `/<project>/<version>/` using the [`upload-to-atr`](../upload-to-atr/README.md) action,
+declaring the archived commit as the source commit of the upload.
 Use it to compose a source release candidate from a tag or branch without long-lived ATR credentials.
 
 Status: EXPERIMENTAL
