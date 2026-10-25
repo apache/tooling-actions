@@ -4,23 +4,33 @@
 apache/tooling-actions/release-on-atr
 ```
 
-This composite GitHub Action lets you resolve a vote or announce a release on ATR.
+This composite GitHub Action resolves the vote on a release candidate, announces a release, or both, on ATR. It authenticates with a GitHub OIDC token, so no long lived credentials are needed, as part of the [ATR Trusted Publishing](https://releases.apache.org/docs/trusted-publishing) workflow.
 
-Status: EXPERIMENTAL
+Status: PRODUCTION
 
 ## Inputs
 
-- **version (required)**: Release version (e.g. `1.2.3`).
-- **atr-host**: ATR host. Default: `releases.apache.org`. Must match `*.apache.org`.
-- **resolve**: If `"true"`, resolve the vote. Default: `"false"`.
-- **resolve-resolution**: Resolution when resolving: `passed` or `failed`. Required when `resolve == "true"`.
-- **announce**: If `"true"`, announce the release. Default: `"false"`.
-- **announce-revision**: Revision number used for announcement. Required when `announce == "true"`.
-- **announce-email-to**: Announcement recipient mailing list address. Required when `announce == "true"`.
-- **announce-body**: Announcement email body. Required when `announce == "true"`.
-- **announce-path-suffix**: Download path suffix. Required when `announce == "true"`.
+- **version (required)**: The ATR version name of the release, e.g. `1.2.3`. This may only contain letters, numbers, `+`, `.` and `-`, so a git ref such as `rel/1.2.3` can't be passed through directly.
+- **atr-host**: ATR host. Must be an `apache.org` host. Default: `releases.apache.org`.
+- **resolve**: `true` to resolve the vote. Default: `false`.
+- **resolve-resolution**: `passed`, `failed` or `cancelled`. Required when `resolve` is `true`.
+- **announce**: `true` to announce the release. Default: `false`.
+- **announce-email-to**: Announcement recipient mailing list address. Required when `announce` is `true`. This must be one of the addresses that the project is permitted to announce to.
+- **announce-body**: Announcement email body. Required when `announce` is `true`.
+
+At least one of `resolve` and `announce` must be `true`. The action checks all of its inputs before it requests an OIDC token, so a mistake in the inputs fails the job before anything is sent to ATR.
+
+## Release policy
+
+ATR only accepts these calls from workflows that are listed in the project's release policy. Resolving a vote uses the list of vote workflow paths, and announcing a release uses the list of finish workflow paths. A workflow that does both must be in both lists. If the workflow is missing, the call fails with `Release policy for repository ... not found`.
+
+The project must also be in a committee that is permitted to make automated releases.
+
+If the release policy maps files to distribution platforms, those distributions must be recorded before the release can be announced, for example with [record-atr-distribution](../record-atr-distribution).
 
 ## Example workflows
+
+The `id-token` write permission is **required** when using this GitHub Action. Tagged versions of this action are not available. Replace `<COMMIT>` in these examples with your chosen commit.
 
 Resolve only:
 
@@ -29,6 +39,14 @@ name: Resolve vote on ATR
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to resolve, e.g. 1.2.3"
+        required: true
+      resolution:
+        description: "Vote resolution"
+        type: choice
+        options: [passed, failed, cancelled]
 
 jobs:
   resolve:
@@ -40,9 +58,9 @@ jobs:
       - name: Resolve vote
         uses: apache/tooling-actions/release-on-atr@<COMMIT>
         with:
-          version: ${{ github.ref_name }}
+          version: ${{ inputs.version }}
           resolve: "true"
-          resolve-resolution: passed
+          resolve-resolution: ${{ inputs.resolution }}
 ```
 
 Announce only:
@@ -52,6 +70,10 @@ name: Announce release on ATR
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to announce, e.g. 1.2.3"
+        required: true
 
 jobs:
   announce:
@@ -63,13 +85,11 @@ jobs:
       - name: Announce release
         uses: apache/tooling-actions/release-on-atr@<COMMIT>
         with:
-          version: ${{ github.ref_name }}
+          version: ${{ inputs.version }}
           announce: "true"
-          announce-revision: 00005
-          announce-email-to: dev@example.apache.org
+          announce-email-to: announce@apache.org
           announce-body: |
             The Apache Example team is pleased to announce...
-          announce-path-suffix: example/${{ github.ref_name }}
 ```
 
 Resolve then announce in one job:
@@ -79,6 +99,10 @@ name: Resolve and announce on ATR
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, e.g. 1.2.3"
+        required: true
 
 jobs:
   release:
@@ -90,18 +114,21 @@ jobs:
       - name: Resolve and announce
         uses: apache/tooling-actions/release-on-atr@<COMMIT>
         with:
-          version: ${{ github.ref_name }}
+          version: ${{ inputs.version }}
           resolve: "true"
           resolve-resolution: passed
           announce: "true"
-          announce-revision: 00005
-          announce-email-to: dev@example.apache.org
+          announce-email-to: announce@apache.org
           announce-body: |
             The Apache Example team is pleased to announce...
-          announce-path-suffix: example/${{ github.ref_name }}
 ```
+
+This doesn't work for podlings. When a podling's first round vote passes, ATR starts the second round vote, and the release can't be announced until that has been resolved too.
 
 ## Further details
 
-- The job must grant `id-token: write` so that this action can request a GitHub OIDC token, which the ATR validates via JWKS. The OIDC token determines which ATR project is being updated.
-- The ATR host must match `*.apache.org`, otherwise the workflow will fail.
+The job must grant `id-token: write` so that this action can request a GitHub OIDC token, which ATR checks using JWKS. The workflow's repository and path in the token decide which ATR project is being updated.
+
+ATR announces the revision that was voted on, because nothing can be added to a release once its vote has started. This action does not send a commit hash, because the source commit of a release is recorded when it is uploaded, by [upload-to-atr](../upload-to-atr).
+
+The announcement recipient address is masked in the workflow log.
