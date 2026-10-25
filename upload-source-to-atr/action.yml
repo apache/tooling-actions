@@ -28,50 +28,46 @@ inputs:
   gpg-private-key: {description: "ASCII-armored GPG private key used for signing (usually secrets.<PMC>_GPG_SECRET_KEY)", required: true}
   gpg-passphrase: {description: "Passphrase of the GPG private key, if any (usually secrets.<PMC>_GPG_PASSPHRASE)", default: ""}
   gpg-fingerprint: {description: "Expected fingerprint of the primary signing key; the action fails if the imported key differs (usually vars.<PMC>_GPG_FINGERPRINT)", default: ""}
-  swhid: {description: "Compute the SWHID of the expanded archive (true or false)", default: "true"}
   atr-host: {description: "ATR host", default: "releases.apache.org"}
   ssh-port: {description: "SSH port", default: "2222"}
 
 outputs:
-  directory: {description: "Directory containing the archive, its checksum and its signature", value: "${{ steps.archive.outputs.directory }}"}
+  directory: {description: "Directory containing the archive and its signature", value: "${{ steps.archive.outputs.directory }}"}
   archive: {description: "File name of the archive", value: "${{ steps.archive.outputs.archive }}"}
   commit: {description: "Commit that was archived", value: "${{ steps.archive.outputs.commit }}"}
   sha512: {description: "SHA-512 checksum of the archive", value: "${{ steps.archive.outputs.sha512 }}"}
-  swhid: {description: "Directory SWHID of the expanded archive (empty if swhid is false)", value: "${{ steps.swhid.outputs.swhid }}"}
+  swhid: {description: "Directory SWHID of the archived source tree", value: "${{ steps.archive.outputs.swhid }}"}
 
 runs:
   using: "composite"
   steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+      with:
+        version: "0.9.11"
+        # The cache would be keyed on the lock files of the calling repository.
+        enable-cache: false
+
+    # The scripts run in the environment of the uv project next to this file,
+    # with the dependencies pinned by its uv.lock.
     - name: Create the source archive
       id: archive
       shell: bash
-      run: "$GITHUB_ACTION_PATH/archive.sh"
+      run: |
+        uv run --project "$GITHUB_ACTION_PATH" --frozen --no-dev --managed-python \
+          python "${GITHUB_ACTION_PATH}/archive.py" \
+          --project="$INPUTS_PROJECT" \
+          --version="$INPUTS_VERSION" \
+          --archive-prefix="$INPUTS_ARCHIVE_PREFIX" \
+          --archive-directory="$INPUTS_ARCHIVE_DIRECTORY" \
+          --output-directory="$(mktemp -d "${RUNNER_TEMP}/upload-source-to-atr-XXXXXX")" |
+          tee -a "$GITHUB_OUTPUT"
       env:
+        UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/upload-source-to-atr-venv
         INPUTS_PROJECT: ${{ inputs.project }}
         INPUTS_VERSION: ${{ inputs.version }}
         INPUTS_ARCHIVE_PREFIX: ${{ inputs.archive-prefix }}
         INPUTS_ARCHIVE_DIRECTORY: ${{ inputs.archive-directory }}
-
-    - name: Set up Python for the SWHID computation
-      if: ${{ inputs.swhid == 'true' }}
-      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-      with:
-        python-version: "3.12"
-
-    - name: Compute the SWHID of the expanded archive
-      id: swhid
-      if: ${{ inputs.swhid == 'true' }}
-      shell: bash
-      run: |
-        set -euo pipefail
-        python -m venv "${RUNNER_TEMP}/upload-source-to-atr-venv"
-        "${RUNNER_TEMP}/upload-source-to-atr-venv/bin/python" -m pip install --quiet --require-hashes -r "${GITHUB_ACTION_PATH}/requirements.txt"
-        "${RUNNER_TEMP}/upload-source-to-atr-venv/bin/python" "${GITHUB_ACTION_PATH}/swhid.py"
-      env:
-        DIRECTORY: ${{ steps.archive.outputs.directory }}
-        ARCHIVE: ${{ steps.archive.outputs.archive }}
-        ARCHIVE_DIRECTORY: ${{ steps.archive.outputs.archive-directory }}
-        TREE: ${{ steps.archive.outputs.tree }}
 
     - name: Import the GPG signing key
       id: gpg
@@ -82,12 +78,47 @@ runs:
 
     - name: Sign the source archive
       shell: bash
-      run: "$GITHUB_ACTION_PATH/sign.sh"
+      run: |
+        uv run --project "$GITHUB_ACTION_PATH" --frozen --no-dev --managed-python \
+          python "${GITHUB_ACTION_PATH}/sign.py" \
+          --fingerprint="$IMPORTED_FINGERPRINT" \
+          --expected-fingerprint="$EXPECTED_FINGERPRINT" \
+          -- "${DIRECTORY}/${ARCHIVE}"
       env:
+        UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/upload-source-to-atr-venv
         DIRECTORY: ${{ steps.archive.outputs.directory }}
         ARCHIVE: ${{ steps.archive.outputs.archive }}
         IMPORTED_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
         EXPECTED_FINGERPRINT: ${{ inputs.gpg-fingerprint }}
+
+    - name: Write the step summary
+      shell: bash
+      run: |
+        # The two SWHIDs differ if git attributes, such as export-ignore, altered the archive content.
+        # SWHIDs use SHA-1, so a repository that uses SHA-256 has none.
+        if [[ ${#TREE} -eq 40 ]]; then
+          tree_swhid="\`swh:1:dir:${TREE}\`"
+        else
+          tree_swhid="none, the repository does not use SHA-1"
+        fi
+        {
+          echo "### Source release"
+          echo
+          echo "- Commit: \`${COMMIT}\`"
+          echo "- Archive: \`${ARCHIVE}\` (top-level directory \`${ARCHIVE_DIRECTORY}/\`)"
+          echo "- SHA-512: \`${SHA512}\`"
+          echo "- Git repo SWHID: ${tree_swhid}"
+          echo "- Archive SWHID: \`${SWHID}\`"
+          echo "- Signed with: \`${FINGERPRINT}\`"
+        } >> "$GITHUB_STEP_SUMMARY"
+      env:
+        COMMIT: ${{ steps.archive.outputs.commit }}
+        ARCHIVE: ${{ steps.archive.outputs.archive }}
+        ARCHIVE_DIRECTORY: ${{ steps.archive.outputs.archive-directory }}
+        SHA512: ${{ steps.archive.outputs.sha512 }}
+        TREE: ${{ steps.archive.outputs.tree }}
+        SWHID: ${{ steps.archive.outputs.swhid }}
+        FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}
 
     - name: Upload to ATR
       uses: $/upload-to-atr

@@ -1,3 +1,4 @@
+#!/usr/bin/env -S uv run --script
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,62 +16,115 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Compute the SWHID of the source tree contained in the release archive.
+# /// script
+# requires-python = ">=3.12"
+# dependencies = ["swh.model>=8.4.1"]
+# ///
 
-The archive is extracted into a temporary directory,
+"""Compute the SWHID of the source tree contained in a release archive.
+
+The entries of the tar stream are hashed as they are read, without extracting them,
 and the directory SWHID (https://swhid.org/) of its single top-level directory
-is computed with asfswhid (https://github.com/apache/tooling-asfswhid).
-The result is compared with the SWHID of the archived git tree.
-They are identical unless git attributes altered the archive content:
+is computed with swh.model (https://gitlab.softwareheritage.org/swh/devel/swh-model).
+For an archive created by git archive, it is swh:1:dir:<tree id> of the archived tree,
+unless git attributes altered the archive content:
 export-ignore and export-subst,
 but also line ending conversion (text, eol, core.autocrlf) and clean/smudge filters,
 since git archive applies the same conversions as a checkout.
 
-Inputs (environment): DIRECTORY, ARCHIVE, ARCHIVE_DIRECTORY, TREE
-Outputs (GITHUB_OUTPUT): swhid
+The results are printed as key=value lines, which can be appended to GITHUB_OUTPUT:
+swhid and swh-model-version.
 """
 
+import argparse
+import importlib.metadata
 import os
 import sys
 import tarfile
-import tempfile
 from pathlib import Path
+from typing import IO
 
-from asfswhid import directory_id
+from swh.model.hashutil import MultiHash
+from swh.model.model import Directory, DirectoryEntry
+
+DIRECTORY = 0o040000
+FILE = 0o100644
+EXECUTABLE = 0o100755
+SYMLINK = 0o120000
+
+# A directory maps entry names to subdirectories or to (permissions, sha1_git) pairs of files.
+Tree = dict[bytes, "Tree | tuple[int, bytes]"]
 
 
-def error(message: str) -> None:
-    print(f"::error::{message}", file=sys.stderr)
-    sys.exit(1)
+class Error(Exception):
+    pass
 
 
-def main() -> None:
-    directory = Path(os.environ["DIRECTORY"])
-    archive = os.environ["ARCHIVE"]
-    archive_directory = os.environ["ARCHIVE_DIRECTORY"]
-    tree = os.environ["TREE"]
+def blob_id(data: IO[bytes], length: int) -> bytes:
+    return MultiHash.from_file(data, hash_names=["sha1_git"], length=length).digest()["sha1_git"]
 
-    with tempfile.TemporaryDirectory(prefix="upload-source-to-atr-") as tmp:
-        with tarfile.open(directory / archive, "r:gz") as tar:
-            tar.extractall(tmp, filter="data")
-        entries = sorted(os.listdir(tmp))
-        if entries != [archive_directory]:
-            error(f"Expected {archive} to contain the single directory {archive_directory}/, found: {entries}")
-        swhid = str(directory_id(os.path.join(tmp, archive_directory)))
 
-    tree_swhid = f"swh:1:dir:{tree}" if len(tree) == 40 else None
-    if tree_swhid is None:
-        comparison = "not compared with the git tree (repository does not use SHA-1)"
-    elif swhid == tree_swhid:
-        comparison = "identical to the git tree of the archived commit"
-    else:
-        comparison = f"differs from the git tree `{tree_swhid}`, git attributes such as export-ignore, export-subst or eol altered the content"
+def directory_id(tree: Tree) -> bytes:
+    entries = []
+    for name, node in tree.items():
+        if isinstance(node, dict):
+            entries.append(DirectoryEntry(name=name, type="dir", perms=DIRECTORY, target=directory_id(node)))
+        else:
+            perms, target = node
+            entries.append(DirectoryEntry(name=name, type="file", perms=perms, target=target))
+    return Directory(entries=tuple(entries)).id
 
-    with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-        output.write(f"swhid={swhid}\n")
-    with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
-        summary.write(f"- SWHID: `{swhid}` ({comparison})\n")
-    print(f"{swhid} ({comparison})")
+
+def tar_swhid(fileobj: IO[bytes], archive_directory: str = "") -> str:
+    """Return the directory SWHID of the single top-level directory of a tar stream, compressed or not."""
+    root: Tree = {}
+    with tarfile.open(fileobj=fileobj, mode="r|*") as tar:
+        for member in tar:
+            parts = [os.fsencode(part) for part in member.name.split("/")]
+            if member.name.startswith("/") or any(part in (b"", b".", b"..") for part in parts):
+                raise Error(f"Unsupported path in the archive: {member.name}")
+            parent = root
+            for part in parts[:-1]:
+                parent = parent.setdefault(part, {})
+                if not isinstance(parent, dict):
+                    raise Error(f"Unsupported path in the archive: {member.name}")
+            name = parts[-1]
+            if member.isdir():
+                if not isinstance(parent.setdefault(name, {}), dict):
+                    raise Error(f"Unsupported path in the archive: {member.name}")
+            elif member.isreg():
+                perms = EXECUTABLE if member.mode & 0o111 else FILE
+                parent[name] = (perms, blob_id(tar.extractfile(member), member.size))
+            elif member.issym():
+                target = os.fsencode(member.linkname)
+                parent[name] = (SYMLINK, MultiHash.from_data(target, hash_names=["sha1_git"]).digest()["sha1_git"])
+            else:
+                raise Error(f"Unsupported entry type in the archive: {member.name}")
+
+    entries = sorted(os.fsdecode(name) for name in root)
+    if len(entries) != 1 or (archive_directory and entries != [archive_directory]):
+        expected = f"the single directory {archive_directory}/" if archive_directory else "a single directory"
+        raise Error(f"Expected the archive to contain {expected}, found: {entries}")
+    top = root[os.fsencode(entries[0])]
+    if not isinstance(top, dict):
+        raise Error(f"Expected the archive to contain a single directory, found the file {entries[0]}")
+    return f"swh:1:dir:{directory_id(top).hex()}"
+
+
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("archive", type=Path, help="source archive (.tar, .tar.gz, .tar.bz2 or .tar.xz)")
+    parser.add_argument("--archive-directory", default="", help="expected name of the single top-level directory inside the archive")
+    args = parser.parse_args(argv)
+
+    try:
+        with args.archive.open("rb") as archive:
+            swhid = tar_swhid(archive, args.archive_directory)
+    except (Error, tarfile.TarError) as e:
+        sys.exit(f"error: {e}")
+
+    print(f"swhid={swhid}")
+    print(f"swh-model-version={importlib.metadata.version('swh.model')}")
 
 
 if __name__ == "__main__":

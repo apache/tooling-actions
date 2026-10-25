@@ -24,7 +24,7 @@ updates:
       day: "monday"
     cooldown:
       default-days: 7
-  - package-ecosystem: "pip"
+  - package-ecosystem: "uv"
     directory: "/upload-source-to-atr"
     schedule:
       interval: "weekly"
