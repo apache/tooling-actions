@@ -1,0 +1,20 @@
+# Development project for the scripts of the upload-source-to-atr action.
+# Each script declares its own dependencies with inline metadata (PEP 723),
+# while uv.lock pins them with hashes for the action and the tests.
+
+[project]
+name = "upload-source-to-atr"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = ["swh.model>=8.4.1"]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = ["-p", "no:cacheprovider"]

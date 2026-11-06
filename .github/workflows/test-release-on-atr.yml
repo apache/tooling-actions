@@ -53,12 +53,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Use the action from the branch the workflow was dispatched on, so that changes can be tested before merging
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
       - name: Release on ATR
-        uses: ./release-on-atr
+        uses: $/release-on-atr
         with:
           version: ${{ inputs.version }}
           atr-host: ${{ inputs.atr-host }}
