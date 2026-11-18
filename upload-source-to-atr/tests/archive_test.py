@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pytest
 
-import archive
+from upload_source_to_atr import archive
 from conftest import ARCHIVE_SHA512, COMMIT, COMMIT_TIME, SWHID, TREE, commit, git, parse_outputs
 
 NAME = "apache-example-1.2.3-src"

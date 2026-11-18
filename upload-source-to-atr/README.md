@@ -93,7 +93,7 @@ jobs:
 
 ## Reproducibility
 
-Anyone who archives the same commit with [`archive.py`](archive.py) obtains a byte-for-byte identical file.
+Anyone who archives the same commit with `atr-archive` obtains a byte-for-byte identical file.
 The action follows the [reproducible archives](https://reproducible-builds.org/docs/archives/) guidance:
 
 - `git archive` sets the modification time of every entry to the commit time and the owner to `root`,
@@ -105,7 +105,7 @@ The result does not depend on the platform's `gzip`:
 it is the same as `gzip.compress(tar, compresslevel=9, mtime=<commit time>)` on any supported Python version,
 but differs from the output of GNU `gzip`, which uses its own compressor.
 Python builds that use [zlib-ng](https://github.com/zlib-ng/zlib-ng) instead of zlib, such as some Windows or Fedora builds,
-also produce a different file, and `archive.py` warns about it.
+also produce a different file, and `atr-archive` warns about it.
 The Python builds that `uv` installs use zlib.
 
 [Trusted Publishing](https://releases.apache.org/docs/trusted-publishing) at the ASF requires releases built on CI to be reproducible,
@@ -114,23 +114,35 @@ A release that consists of this source archive alone meets the requirement out o
 
 ### Reproducing the archive locally
 
-The action runs standalone Python scripts,
-which declare their requirements with [inline script metadata](https://packaging.python.org/en/latest/specifications/inline-script-metadata/)
-and run with [`uv`](https://docs.astral.sh/uv/) and Python 3.12 or later:
+The action runs the commands of a small Python package in [`src/upload_source_to_atr`](src/upload_source_to_atr),
+which requires Python 3.12 or later:
 
-- [`archive.py`](archive.py) creates the source archive and computes its SHA-512 checksum and its SWHID,
-- [`sign.py`](sign.py) signs the archive and verifies the signature.
-
-[`swhid.py`](swhid.py) computes the SWHID of any existing archive.
+- `atr-archive` creates the source archive and computes its SHA-512 checksum and its SWHID,
+- `atr-sign` signs the archive and verifies the signature,
+- `atr-swhid` computes the SWHID of any existing archive.
 
 PMC members can use them to check that a release candidate was built from the commit it claims.
-From this directory, with a clone of the project repository in `<REPOSITORY>`:
+Install them with [`uv`](https://docs.astral.sh/uv/) from the commit of this repository that the release workflow uses,
+in place of `<ACTION_COMMIT>`:
 
 ```shell
-uv run --script archive.py --repository <REPOSITORY> --project example --version 1.2.3 --commit <COMMIT> --output-directory /tmp/check
+uv tool install --managed-python \
+  "git+https://github.com/apache/tooling-actions@<ACTION_COMMIT>#subdirectory=upload-source-to-atr"
 ```
 
-The script prints its results as `key=value` lines.
+`--managed-python` selects a Python build installed by `uv`, which uses zlib like the action.
+`uv` puts the commands in `~/.local/bin`; run `uv tool update-shell` if that directory is not in your `PATH`.
+`uv tool install` resolves the dependencies afresh rather than using `uv.lock`,
+which does not affect the archive:
+only the SWHID depends on them, and its algorithm is standardized.
+
+With a clone of the project repository in `<REPOSITORY>`:
+
+```shell
+atr-archive --repository <REPOSITORY> --project example --version 1.2.3 --commit <COMMIT> --output-directory /tmp/check
+```
+
+The command prints its results as `key=value` lines.
 The `sha512` and `swhid` values must match those of the archive on ATR.
 The other lines show the versions of the tools that can affect the result,
 such as `zlib-runtime-version` and `git-version`,
@@ -138,10 +150,16 @@ to compare with those in the log of the action if the checksums differ.
 To compute the SWHID of the archive downloaded from ATR:
 
 ```shell
-uv run --script swhid.py apache-example-1.2.3-src.tar.gz
+atr-swhid apache-example-1.2.3-src.tar.gz
 ```
 
-Run `uv run --script <script> --help` for all options.
+Run `<command> --help` for all options.
+To run the commands exactly as the action does, with the dependencies pinned by `uv.lock`,
+use a clone of this repository at `<ACTION_COMMIT>` instead:
+
+```shell
+uv run --project upload-source-to-atr --frozen --no-dev --managed-python atr-archive …
+```
 
 ### Signing secrets
 
@@ -176,7 +194,10 @@ The two diverge when git attributes rewrite the exported files, for example:
 
 ## Development
 
-The scripts are a small [`uv`](https://docs.astral.sh/uv/) project.
+The commands are a small [`uv`](https://docs.astral.sh/uv/) project,
+built with the `uv_build` backend.
+The action pins a version of `uv` that matches the `uv_build` requirement in `pyproject.toml`,
+so that `uv` builds the package itself instead of downloading `uv_build`.
 `uv.lock` pins the dependencies with hashes for the action and the tests,
 and Dependabot keeps it up to date.
 To run the tests:

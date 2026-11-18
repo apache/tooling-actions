@@ -44,18 +44,24 @@ runs:
     - name: Install uv
       uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
       with:
-        version: "0.9.11"
+        # Keep in the range of the uv_build requirement in pyproject.toml, so that uv builds the package itself.
+        version: "0.13.5"
         # The cache would be keyed on the lock files of the calling repository.
         enable-cache: false
 
-    # The scripts run in the environment of the uv project next to this file,
-    # with the dependencies pinned by its uv.lock.
+    # Install the uv project next to this file, with the dependencies pinned by its uv.lock,
+    # in a virtual environment outside the workspace.
+    - name: Install the commands
+      shell: bash
+      run: uv sync --project "$GITHUB_ACTION_PATH" --frozen --no-dev --managed-python
+      env:
+        UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/upload-source-to-atr-venv
+
     - name: Create the source archive
       id: archive
       shell: bash
       run: |
-        uv run --project "$GITHUB_ACTION_PATH" --frozen --no-dev --managed-python \
-          python "${GITHUB_ACTION_PATH}/archive.py" \
+        "${VENV}/bin/atr-archive" \
           --project="$INPUTS_PROJECT" \
           --version="$INPUTS_VERSION" \
           --archive-prefix="$INPUTS_ARCHIVE_PREFIX" \
@@ -63,7 +69,7 @@ runs:
           --output-directory="$(mktemp -d "${RUNNER_TEMP}/upload-source-to-atr-XXXXXX")" |
           tee -a "$GITHUB_OUTPUT"
       env:
-        UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/upload-source-to-atr-venv
+        VENV: ${{ runner.temp }}/upload-source-to-atr-venv
         INPUTS_PROJECT: ${{ inputs.project }}
         INPUTS_VERSION: ${{ inputs.version }}
         INPUTS_ARCHIVE_PREFIX: ${{ inputs.archive-prefix }}
@@ -89,13 +95,12 @@ runs:
     - name: Sign the source archive
       shell: bash
       run: |
-        uv run --project "$GITHUB_ACTION_PATH" --frozen --no-dev --managed-python \
-          python "${GITHUB_ACTION_PATH}/sign.py" \
+        "${VENV}/bin/atr-sign" \
           --fingerprint="$IMPORTED_FINGERPRINT" \
           --expected-fingerprint="$EXPECTED_FINGERPRINT" \
           -- "${DIRECTORY}/${ARCHIVE}"
       env:
-        UV_PROJECT_ENVIRONMENT: ${{ runner.temp }}/upload-source-to-atr-venv
+        VENV: ${{ runner.temp }}/upload-source-to-atr-venv
         DIRECTORY: ${{ steps.archive.outputs.directory }}
         ARCHIVE: ${{ steps.archive.outputs.archive }}
         IMPORTED_FINGERPRINT: ${{ steps.gpg.outputs.fingerprint }}

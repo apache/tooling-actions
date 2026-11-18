@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pytest
 
-import archive
-import sign
+from upload_source_to_atr import archive
+from upload_source_to_atr import sign
 
 FINGERPRINT = "0123456789ABCDEF0123456789ABCDEF01234567"
 

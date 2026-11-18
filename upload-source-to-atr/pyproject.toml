@@ -1,20 +1,31 @@
-# Development project for the scripts of the upload-source-to-atr action.
-# Each script declares its own dependencies with inline metadata (PEP 723),
-# while uv.lock pins them with hashes for the action and the tests.
+# Package of the scripts of the upload-source-to-atr action.
+# uv.lock pins the dependencies with hashes for the action and the tests.
+
+# uv builds the package itself, without downloading uv_build,
+# as long as its version matches this requirement.
+[build-system]
+requires = ["uv_build>=0.13.5,<0.14"]
+build-backend = "uv_build"
 
 [project]
 name = "upload-source-to-atr"
 version = "0.0.0"
+description = "Create, sign and identify reproducible source archives for ATR"
+license = "Apache-2.0"
 requires-python = ">=3.12"
 dependencies = ["swh.model>=8.4.1"]
+
+[project.scripts]
+atr-archive = "upload_source_to_atr.archive:main"
+atr-sign = "upload_source_to_atr.sign:main"
+atr-swhid = "upload_source_to_atr.swhid:main"
+
+[project.urls]
+Source = "https://github.com/apache/tooling-actions/tree/main/upload-source-to-atr"
 
 [dependency-groups]
 dev = ["pytest>=8"]
 
-[tool.uv]
-package = false
-
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
 addopts = ["-p", "no:cacheprovider"]

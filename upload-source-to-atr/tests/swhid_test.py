@@ -23,8 +23,8 @@ from pathlib import Path
 import pytest
 from swh.model.from_disk import Directory
 
-import archive
-import swhid
+from upload_source_to_atr import archive
+from upload_source_to_atr import swhid
 from conftest import SWHID, TREE, commit, git, parse_outputs
 
 NAME = "apache-example-1.2.3-src"

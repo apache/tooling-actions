@@ -1,4 +1,3 @@
-#!/usr/bin/env -S uv run --script
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -16,11 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["swh.model>=8.4.1"]
-# ///
-
 """Create a reproducible source archive of a git commit, with its SHA-512 checksum and SWHID.
 
 See https://reproducible-builds.org/docs/archives/
@@ -33,7 +27,7 @@ Anyone who archives the same commit with Python and zlib (but not zlib-ng)
 obtains a byte-for-byte identical file.
 
 The tar stream is read once: while it is compressed,
-its entries are hashed to compute the SWHID (see swhid.py),
+its entries are hashed to compute the SWHID (see the swhid module),
 and the compressed output is hashed to compute the SHA-512 checksum.
 
 The results are printed as key=value lines, which can be appended to GITHUB_OUTPUT:
@@ -55,8 +49,8 @@ import zlib
 from pathlib import Path
 from typing import IO
 
-from swhid import Error as SwhidError
-from swhid import tar_swhid
+from .swhid import Error as SwhidError
+from .swhid import tar_swhid
 
 NAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+-]*")
 
