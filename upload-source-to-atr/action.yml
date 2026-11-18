@@ -32,7 +32,7 @@ inputs:
   ssh-port: {description: "SSH port", default: "2222"}
 
 outputs:
-  directory: {description: "Directory containing the archive and its signature", value: "${{ steps.archive.outputs.directory }}"}
+  directory: {description: "Directory containing the archive, its signature and its checksum file", value: "${{ steps.archive.outputs.directory }}"}
   archive: {description: "File name of the archive", value: "${{ steps.archive.outputs.archive }}"}
   commit: {description: "Commit that was archived", value: "${{ steps.archive.outputs.commit }}"}
   sha512: {description: "SHA-512 checksum of the archive", value: "${{ steps.archive.outputs.sha512 }}"}
@@ -68,6 +68,16 @@ runs:
         INPUTS_VERSION: ${{ inputs.version }}
         INPUTS_ARCHIVE_PREFIX: ${{ inputs.archive-prefix }}
         INPUTS_ARCHIVE_DIRECTORY: ${{ inputs.archive-directory }}
+
+    # Use the format of sha512sum, with the bare file name, so that sha512sum -c can check a downloaded copy.
+    - name: Write the checksum file
+      shell: bash
+      working-directory: ${{ steps.archive.outputs.directory }}
+      run: |
+        printf '%s  %s\n' "$SHA512" "$ARCHIVE" > "${ARCHIVE}.sha512"
+      env:
+        ARCHIVE: ${{ steps.archive.outputs.archive }}
+        SHA512: ${{ steps.archive.outputs.sha512 }}
 
     - name: Import the GPG signing key
       id: gpg
